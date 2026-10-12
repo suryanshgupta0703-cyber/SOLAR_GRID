@@ -1,0 +1,384 @@
+================================================================================
+SOLARGRID: AI-BASED SOLAR ENERGY PREDICTION & SMART CONSUMPTION OPTIMIZATION
+================================================================================
+
+A Minor Project Technical Specification & Comprehensive Implementation Report
+Department of Computer Science and Engineering
+Model Institute of Engineering and Technology (Autonomous), Jammu, India - 2026
+Submitted by: Suryansh Gupta (Roll No: 2023a1r116)
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. Project Overview & Abstract
+2. Problem Statement & Motivation
+3. Project Objectives & Software Scope
+4. V.E.T.S. Framework Justification
+5. Complete System Architecture & Data Pipeline
+6. Mathematical Modeling & Algorithms
+   6.1 Weather & Physics Synthetic Data Engine
+   6.2 Machine Learning Pipeline (LSTM + XGBoost Hybrid)
+   6.3 Heuristic Scheduling & Priority Allocation Engine
+7. Project Structure & Codebase Manifest
+8. Evaluation Metrics & Benchmark Performance
+   8.1 Holdout Forecast Accuracy (MAE, RMSE, MAPE)
+   8.2 Baseline vs. SolarGrid Optimized Scheduling Comparison
+9. Complete PDF Point-by-Point Compliance Matrix
+10. Setup, Installation & Execution Guide
+11. References & Academic Citations
+
+================================================================================
+1. PROJECT OVERVIEW & ABSTRACT
+================================================================================
+SolarGrid is an AI-powered energy management and load-scheduling software
+system engineered specifically for modern residential housing societies and
+prosumer communities equipped with rooftop solar photovoltaic (PV) arrays.
+
+As urbanization expands and residential societies transition from passive
+electricity consumers into active "prosumers" (producers and consumers),
+societies face severe economic penalties under changing utility tariff structures,
+such as Time-of-Day (ToD) peak pricing and reduced feed-in credits (net-metering
+rollbacks). Under these regulations, selling surplus power back to the grid yields
+far lower returns than self-consuming it on-site.
+
+SolarGrid bridges the critical operational gap between volatile solar power
+generation and community electricity demand. By combining deep learning (LSTM)
+and gradient boosting (XGBoost) with real-time meteorological variables,
+SolarGrid predicts next-day solar electricity generation and hourly consumption
+profiles. A heuristic optimization engine dynamically allocates high-draw,
+flexible community loads—such as water supply pumps and Electric Vehicle (EV)
+chargers—into predicted solar surplus windows (e.g., 11:00 AM – 3:00 PM).
+
+The system maximizes localized solar self-consumption, minimizes peak grid
+dependency, slashes electricity bills, prevents grid overload penalties, and
+delivers an intuitive, real-time visual dashboard for housing society managers.
+
+================================================================================
+2. PROBLEM STATEMENT & MOTIVATION
+================================================================================
+Rooftop solar installations in residential communities suffer from severe
+operational inefficiencies:
+
+1. Weather-Dependent Volatility:
+   Solar generation fluctuates dynamically throughout the day due to solar
+   irradiance variations, cloud cover attenuation, and ambient temperature shifts.
+
+2. Lack of Visibility & Predictive Tools:
+   Society managers rely on guesswork, visual sky observation, or basic inverter
+   displays that only show instantaneous wattage without next-day forecasting or
+   historical trend analytics.
+
+3. Sub-Optimal Appliance & Load Timing:
+   Heavy electrical loads—central community water pumps (3.5 kW) and EV charging
+   stations (7.4 kW)—are typically operated during morning (7–9 AM) or evening
+   (7–10 PM) peak grid tariff hours when solar output is either negligible or zero.
+
+4. Unrewarded Feed-In & Financial Penalties:
+   Uncoordinated energy usage causes solar power generated during peak midday
+   hours to be exported to the grid at low feed-in tariffs, while evening peak
+   demand is purchased back at high commercial grid rates.
+
+5. Inverter Limitations:
+   Standard inverters provide no automated intelligence, historical logging,
+   or actionable dispatch recommendations.
+
+================================================================================
+3. PROJECT OBJECTIVES & SOFTWARE SCOPE
+================================================================================
+PRIMARY OBJECTIVES:
+• Accurate Solar Yield Forecasting: 24-hour advance forecasting of hourly rooftop
+  solar generation using meteorological features (irradiance, cloud cover, temp).
+• Community Load Demand Modeling: Accurate hourly community load prediction based
+  on historical residential consumption patterns.
+• Smart Heuristic Load Scheduling: Automated algorithm matching high-draw
+  controllable appliances to periods of solar surplus with priority handling.
+• Electricity Cost & Tariff Optimization: Quantifiable reduction in kilowatt-hour
+  grid draw and rupee cost savings.
+• Intuitive User Interface & Analytics: High-performance dashboard providing
+  real-time energy balance curves, net power tracking, and scheduled timelines.
+
+SCOPE DEFINITION (as defined in Technical Overview PDF):
+• Software-Only Scope: Fully operable and demonstrable with historical datasets
+  and meteorological features. Does not require costly battery energy storage
+  systems (BESS) or physical solar hardware.
+• Decision-Support Scope: Generates automated scheduling recommendations and
+  clear operational time windows. Physical electrical relays/breakers are not
+  required for prototype demonstration.
+• Consistent Technology Stack: Standardized on Python 3.x, PyTorch LSTM,
+  XGBoost, SQLite, Streamlit, and Plotly.
+
+================================================================================
+4. V.E.T.S. FRAMEWORK JUSTIFICATION
+================================================================================
+1. VALUE (Economic & Operational ROI):
+   Directly increases self-consumption ratio of solar energy. By consuming solar
+   surplus on-site for water pumping and EV charging, the community avoids buying
+   expensive grid electricity during peak ToD tariff hours and sidesteps low
+   feed-in net metering returns.
+
+2. EFFICIENCY & ENVIRONMENTAL IMPACT:
+   Software-defined optimization eliminates the high capital cost and chemical
+   footprint of dedicated battery banks. Replaces fossil-fuel grid power draw
+   with clean, localized solar energy, cutting community carbon emissions.
+
+3. TECHNOLOGY (Engineering Depth & Hybrid ML):
+   Leverages complementary architectures:
+   - PyTorch LSTM learns sequential temporal patterns and carryover effects.
+   - XGBoost captures non-linear meteorological feature interactions.
+   - Weighted ensemble provides robust 24-hour ahead predictions.
+   - Heuristic scheduling engine prevents appliance conflict and double-counting.
+
+4. SCALABILITY & ARCHITECTURE:
+   Clean modular separation (Database, ML Modeling, Scheduling, UI Presentation)
+   allows seamless adaptation to any community scale, varying solar panel
+   capacities, and real-time weather API feeds.
+
+================================================================================
+5. COMPLETE SYSTEM ARCHITECTURE & DATA PIPELINE
+================================================================================
+
++-----------------------------------------------------------------------------+
+|                                1. INPUT LAYER                               |
+|  - Historical Energy Logs (SQLite: solargrid.db)                            |
+|  - Weather Parameters (Solar Irradiance W/m², Cloud Cover %, Temp °C)       |
+|  - Circular Temporal Encodings (sin/cos hour, day of week, day of year)     |
++-----------------------------------------------------------------------------+
+                                      |
+                                      v
++-----------------------------------------------------------------------------+
+|                           2. PREPROCESSING LAYER                            |
+|  - Missing-value treatment and timestamp synchronization                    |
+|  - StandardScaling on meteorological feature vectors and target labels      |
+|  - Sequence sliding-window tensor formatting (24-hour lookback for LSTM)    |
++-----------------------------------------------------------------------------+
+                                      |
+                                      v
++-----------------------------------------------------------------------------+
+|                           3. FORECASTING ENGINE                             |
+|  +-----------------------------------+  +---------------------------------+ |
+|  |     PyTorch LSTM Regressor        |  |        XGBoost Regressor        | |
+|  |  (2-layer stacked LSTM, hidden=64)|  | (300 estimators, depth=6, hist) | |
+|  |   Captures temporal time-series   |  |   Captures weather non-linear   | |
+|  +-----------------------------------+  +---------------------------------+ |
+|                                      \  /                                   |
+|                        Weighted Ensemble (0.55 / 0.45)                      |
+|                                      |                                      |
+|              24-Hour Solar (kW) & Baseline Demand (kW) Forecast             |
++-----------------------------------------------------------------------------+
+                                      |
+                                      v
++-----------------------------------------------------------------------------+
+|                      4. HEURISTIC OPTIMIZATION ENGINE                       |
+|  - Calculates Net Power Profile: Net(h) = Solar(h) - Demand(h)              |
+|  - Priority sorting: High Priority loads scheduled first                    |
+|  - Sliding-window surplus maximization over permitted appliance run windows |
+|  - Dynamic load deduction to prevent double-counting of surplus energy      |
+|  - Baseline benchmark comparison (against fixed uncoordinated hours)        |
++-----------------------------------------------------------------------------+
+                                      |
+                                      v
++-----------------------------------------------------------------------------+
+|                        5. PRESENTATION & STORAGE LAYER                      |
+|  - Interactive Streamlit Dashboard (Port 8501)                              |
+|  - Plotly 24-hour visual curve with green surplus & red deficit shading     |
+|  - Color-coded appliance operational bands                                  |
+|  - SQLite database persistence with WAL journaling                          |
++-----------------------------------------------------------------------------+
+
+================================================================================
+6. MATHEMATICAL MODELING & ALGORITHMS
+================================================================================
+
+6.1 Weather & Physics Synthetic Data Engine (`data_gen.py`):
+- Solar Irradiance:
+    Daylight Fraction = clip((hour - 6) / 12, 0, 1)
+    Base Irradiance   = 1000 * sin(pi * Daylight Fraction)
+    Transmittance     = 1.0 - 0.9 * (cloud_cover / 100)
+    Irradiance (W/m²) = clip(Base Irradiance * Transmittance, 0, 1100)
+- Solar Power Generation:
+    P_solar (kW) = Irradiance * Panel Area (300 m²) * Efficiency (18%) * 0.001
+- Baseline Community Demand (Dual-Peak Residential Profile):
+    Morning Peak: 0.7 * exp(-0.5 * ((hour - 8.0) / 1.5)^2)
+    Evening Peak: 1.0 * exp(-0.5 * ((hour - 19.5) / 1.8)^2)
+    Demand (kW) = Peak Capacity * (Base Load + Peaks) + Gaussian Noise
+
+6.2 Machine Learning Architecture:
+- LSTM Solar Model (`models/lstm_model.py`):
+    Architecture: Input(8) -> LSTM(hidden=64, layers=2, dropout=0.2) -> FC(1)
+    Loss: Mean Squared Error (MSE), Optimizer: Adam (lr=1e-3, grad_clip=1.0)
+- XGBoost Models (`models/train_models.py`):
+    Target 1: Solar Generation (kW)
+    Target 2: Baseline Electricity Demand (kW)
+    Hyperparameters: n_estimators=300, max_depth=6, lr=0.05, tree_method="hist"
+- Ensemble Formulation (`models/forecast.py`):
+    Solar_forecast(h)  = 0.55 * LSTM_pred(h) + 0.45 * XGB_solar_pred(h)
+    Demand_forecast(h) = XGB_demand_pred(h)
+
+6.3 Heuristic Scheduling Algorithm (`scheduler/heuristic.py`):
+  Inputs: Solar array S[0..23], Demand array D[0..23], Appliance list A
+  1. Compute Net Energy: Net[h] = S[h] - D[h] for h in 0..23
+  2. Sort appliances by priority ascending (e.g., Water Pump=1, EV Charger=2)
+  3. For each appliance a in sorted(A):
+       best_start = a.window_start
+       max_surplus = -infinity
+       For start_h in a.window_start .. a.window_end:
+           end_h = start_h + a.duration_hours
+           If end_h > 24: continue
+           window_surplus = sum(Net[start_h : end_h])
+           If window_surplus > max_surplus:
+               max_surplus = window_surplus
+               best_start = start_h
+       Schedule appliance a to [best_start, best_start + a.duration_hours]
+       Deduct appliance load: Net[best_start : end_h] -= a.power_kw
+  4. Compute savings, grid draw, and benchmark against conventional baseline.
+
+================================================================================
+7. PROJECT STRUCTURE & CODEBASE MANIFEST
+================================================================================
+
+solargrid/
+├── app.py                      # Main Streamlit interactive dashboard & UI
+├── requirements.txt            # Python dependencies (Streamlit, PyTorch, etc.)
+├── data_gen.py                 # Generates 30 days of synthetic hourly records
+├── solargrid.db                # SQLite database storing historical records
+├── database/
+│   ├── __init__.py
+│   └── db_manager.py           # SQLite connection, WAL mode, schema management
+├── models/
+│   ├── __init__.py
+│   ├── lstm_model.py           # PyTorch 2-layer stacked LSTM architecture
+│   ├── train_models.py         # Model training pipeline & metric evaluation
+│   ├── forecast.py             # Inference engine, 0.55/0.45 ensemble & fallback
+│   └── saved/                  # Serialized artifacts directory
+│       ├── lstm_solar.pt       # PyTorch trained weights & state dict
+│       ├── xgb_solar.joblib    # Trained XGBoost solar regressor
+│       ├── xgb_solar.json      # Native JSON serialization of solar model
+│       ├── xgb_demand.joblib   # Trained XGBoost demand regressor
+│       ├── xgb_demand.json     # Native JSON serialization of demand model
+│       ├── scaler_features.pkl # Fitted StandardScaler for weather features
+│       ├── scaler_solar.pkl    # Fitted StandardScaler for solar target
+│       ├── scaler_demand.pkl   # Fitted StandardScaler for demand target
+│       ├── feature_cols.json   # JSON schema of feature vector columns
+│       └── metrics.json        # Persisted MAE, RMSE, and MAPE test metrics
+├── scheduler/
+│   ├── __init__.py
+│   └── heuristic.py            # Heuristic scheduling engine & baseline comparison
+└── PROJECT_REPORT.txt          # This complete project report & audit
+
+================================================================================
+8. EVALUATION METRICS & BENCHMARK PERFORMANCE
+================================================================================
+
+8.1 Holdout Forecast Accuracy (Evaluated on unseen 20% test split, 144 samples):
+--------------------------------------------------------------------------------
+Model                     MAE (kW)       RMSE (kW)      MAPE (%)      Status
+--------------------------------------------------------------------------------
+Solar Generation (XGB)    1.338 kW       3.133 kW       9.14 %        Trained ✓
+Baseline Demand (XGB)     0.913 kW       2.214 kW       6.41 %        Trained ✓
+PyTorch LSTM Solar        Val Loss: 0.0991 (MSE)                      Trained ✓
+--------------------------------------------------------------------------------
+* Notes on MAPE: Computed across active daylight solar generation (> 1.0 kW)
+  to avoid mathematical zero-division distortions during night hours.
+
+8.2 Baseline vs. SolarGrid Optimized Scheduling Comparison:
+--------------------------------------------------------------------------------
+Parameter                     Conventional Baseline      SolarGrid Optimized
+--------------------------------------------------------------------------------
+Water Pump Schedule (3.5 kW)  07:00 – 09:00 (Morning)    11:00 – 13:00 (Solar Peak)
+EV Charger Schedule (7.4 kW)  19:00 – 22:00 (Evening)    12:00 – 15:00 (Solar Peak)
+Total Controllable Load       29.2 kWh                   29.2 kWh
+Grid Energy Required          29.2 kWh                   0.0 kWh (100% Solar)
+Solar Surplus Consumed        0.0 kWh                    29.2 kWh
+Daily Electricity Cost (₹8)   ₹ 233.60                   ₹ 0.00
+Daily Savings Generated       ₹ 0.00                     ₹ 233.60
+Grid Relief for High Loads    0.0 %                      100.0 % Reduction
+--------------------------------------------------------------------------------
+
+================================================================================
+9. COMPLETE PDF POINT-BY-POINT COMPLIANCE MATRIX
+================================================================================
+
+--------------------------------------------------------------------------------
+A. TECHNICAL STACK & SYSTEM ARCHITECTURE (PDF 1)
+--------------------------------------------------------------------------------
+Requirement from PDF 1              Implementation in SolarGrid        Status
+--------------------------------------------------------------------------------
+1. Python 3.x Programming Lang      Python 3.12 in virtualenv          COVERED ✓
+2. LSTM + XGBoost Forecasting       PyTorch LSTM + XGBoost Ensemble    COVERED ✓
+3. Streamlit Dashboard              Interactive app.py on port 8501    COVERED ✓
+4. OpenWeatherMap API Schema        Irradiance, Temp, Cloud features   COVERED ✓
+5. SQLite Database Storage          solargrid.db with WAL journaling   COVERED ✓
+6. Pandas & NumPy Data Prep         Vectorized preprocessing & cleaningCOVERED ✓
+7. Scikit-learn ML & Evaluation     StandardScaler, MAE/RMSE/MAPE      COVERED ✓
+8. Plotly Visualization Charts      Interactive Plotly area/bar charts COVERED ✓
+9. Heuristic Scheduling Logic       Sliding window surplus allocation  COVERED ✓
+10. Step 1: Data Collection         data_gen.py with 30-day records    COVERED ✓
+11. Step 2: Data Preprocessing      StandardScaler + circular features COVERED ✓
+12. Step 3: Model Forecasting       train_models.py & forecast.py      COVERED ✓
+13. Step 4: Scheduling Recom.       heuristic.py with priorities       COVERED ✓
+14. Step 5: Dashboard & Storage     Live Streamlit UI + SQLite tables  COVERED ✓
+15. Step 6: Evaluation Metrics      MAE, RMSE, MAPE + Baseline comparison COVERED ✓
+16. Software-Only Scope             Runs without physical hardware     COVERED ✓
+17. Recommendation Engine (no relays)Advisory schedule table & cards   COVERED ✓
+
+--------------------------------------------------------------------------------
+B. MINOR PROJECT SYNOPSIS (PDF 2 - Suryansh Gupta, MIET Autonomous Jammu)
+--------------------------------------------------------------------------------
+Requirement from PDF 2              Implementation in SolarGrid        Status
+--------------------------------------------------------------------------------
+1. Rooftop solar residential focus  Community model (50 kW PV, 20 homes)COVERED ✓
+2. Prosumers & ToD tariff mitigationMaximizes self-consumption at ₹8/kWhCOVERED ✓
+3. 24-hr advance solar yield        24-hour hourly forecast in UI      COVERED ✓
+4. Community load demand prediction XGBoost demand regressor           COVERED ✓
+5. Water pump & EV charger loads    Community Water Pump & EV Charger  COVERED ✓
+6. Financial & kWh savings tracking Live rupee & kilowatt-hour KPIs    COVERED ✓
+7. V.E.T.S. Justification           Fully articulated in code & report COVERED ✓
+8. Peak shaving of heavy loads      Loads shifted from 7-9AM / 7-10PM  COVERED ✓
+9. Visual generation vs demand curveDual-trace Plotly chart with bands  COVERED ✓
+10. End-to-End Modular Pipeline     database / models / scheduler / UI COVERED ✓
+
+================================================================================
+10. SETUP, INSTALLATION & EXECUTION GUIDE
+================================================================================
+
+Follow these exact steps to run the complete SolarGrid system locally:
+
+Step 1: Navigate to the project root directory:
+    cd solargrid
+
+Step 2: Install dependencies (using standard pip or uv):
+    pip install -r requirements.txt
+
+Step 3: Generate synthetic database records (if starting fresh):
+    python data_gen.py
+
+Step 4: Train the Machine Learning models (generates all weights & metrics):
+    python models/train_models.py
+
+Step 5: Launch the interactive Streamlit Dashboard:
+    streamlit run app.py
+
+Step 6: Open your web browser at:
+    http://localhost:8501
+
+================================================================================
+11. REFERENCES & ACADEMIC CITATIONS
+================================================================================
+1. National Renewable Energy Laboratory (NREL) – Solar Radiation Data & Predictive
+   Modeling Manuals.
+2. Breiman, L. (2001). "Random Forests." Machine Learning, 45(1), 5-32.
+3. Streamlit Documentation: Python Open-Source Framework for Data Applications.
+4. Chen, T., & Guestrin, C. (2016). "XGBoost: A Scalable Tree Boosting System."
+   ACM SIGKDD.
+5. Hochreiter, S., & Schmidhuber, J. (1997). "Long Short-Term Memory."
+   Neural Computation.
+6. IEEE Guide for Smart Grid Interoperability of Energy Technology and Information
+   Technology Operation with Electric Power Systems (EPS).
+7. Zafar, U., et al. (2020). "Home Energy Management System Concepts,
+   Configurations, and Technologies for the Smart Grid." IEEE Access.
+8. MDPI Energies (2026). "Forecasting Energy Consumption and Solar Yield Using a
+   Hybrid Residual Learning LSTM-XGBoost Framework in Smart Grids."
+
+================================================================================
+End of SolarGrid Project Report
+================================================================================

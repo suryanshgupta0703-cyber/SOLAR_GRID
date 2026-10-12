@@ -7,9 +7,12 @@ pandas>=2.2.0
 numpy>=1.26.0
 scikit-learn>=1.5.0
 xgboost>=2.1.0
-torch>=2.3.0
 joblib>=1.4.0
 
 # --- Visualization ---
 plotly>=5.22.0
 matplotlib>=3.9.0
+
+# --- Deep Learning (Fast CPU build for cloud deployment) ---
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch

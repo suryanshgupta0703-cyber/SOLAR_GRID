@@ -1,0 +1,288 @@
+================================================================================
+SOLARGRID: AI-ENABLED SOLAR ENERGY PREDICTION & SMART LOAD OPTIMIZATION
+================================================================================
+INTERIM MILESTONE TECHNICAL REPORT (PHASES 1–4: DATASET & ML PREDICTION ENGINE)
+Department of Computer Science and Engineering
+Model Institute of Engineering and Technology (Autonomous), Jammu, India - 2026
+Submitted by: Suryansh Gupta (Roll No: 2023a1r116)
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. Interim Milestone Overview & Review Objectives
+2. Project Phased Roadmap & Interim Scope Definition
+3. Phase 1 & 2: Data Engineering & Meteorological Pipeline
+   3.1 Synthetic Physics Engine & Weather Variables
+   3.2 Dual-Peak Community Demand Modeling
+   3.3 Relational SQLite Database Architecture
+4. Phase 3 & 4: Machine Learning Forecasting Engine
+   4.1 Deep Learning Model: PyTorch Two-Stage Stacked LSTM
+   4.2 Gradient Boosting Model: Scikit-Learn / XGBoost Regressor
+   4.3 Feature Engineering: Cyclical Temporal Trigonometry & Normalization
+5. Experimental Results, Metrics & Benchmark Validation
+   5.1 Holdout Test Set Evaluation (MAE, RMSE, MAPE)
+   5.2 Ablation & Model Comparison: Single vs. Ensemble
+6. Energy Balance Analysis: The Bridge to Load Scheduling
+7. Interim Demonstration Package Structure (`second/` Directory)
+8. Execution & Verification Guide for Evaluation Committee
+9. Roadmap for Final Submission (Phases 5–7)
+10. References & Academic Citations
+
+================================================================================
+1. INTERIM MILESTONE OVERVIEW & REVIEW OBJECTIVES
+================================================================================
+This interim milestone document and accompanying software package (`second/`)
+represent the completed technical deliverables for the mid-term evaluation of
+"SolarGrid: AI-Based Solar Energy Prediction & Smart Consumption Optimization."
+
+Under residential rooftop solar photovoltaic (PV) regimes, intermittent weather
+and uncoordinated power draw generate massive grid inefficiencies and financial
+penalties. The primary goal of this interim milestone is to mathematically model,
+implement, train, and validate the foundational data engineering and artificial
+intelligence prediction engines (Phases 1 through 4) that power the entire
+optimization pipeline.
+
+Key Review Objectives Accomplished:
+1. Developed an automated meteorological and residential consumption data
+   pipeline with SQLite persistence (720 hourly records / 30 full days).
+2. Built a hybrid machine learning architecture combining Deep Learning
+   (PyTorch 2-layer LSTM) and Extreme Gradient Boosting (XGBoost).
+3. Achieved rigorous validation on holdout test data:
+   - Solar Generation:  MAE = 1.34 kW, RMSE = 3.13 kW, MAPE = 9.14%
+   - Community Demand:  MAE = 0.91 kW, RMSE = 2.21 kW, MAPE = 6.41%
+4. Implemented interactive 24-hour predictive curves identifying solar surplus
+   windows (10:00 AM – 3:00 PM), mathematically establishing the decision boundary
+   for the upcoming Heuristic Load Scheduler.
+5. Engineered a self-contained demonstration application (`app_interim.py`) allowing
+   the evaluation committee to inspect raw data, test models, and run live inference.
+
+================================================================================
+2. PROJECT PHASED ROADMAP & INTERIM SCOPE DEFINITION
+================================================================================
+As delineated in the official project roadmap, the 7 implementation phases are:
+
+┌─────────┬──────────────────────────────────────────┬────────────────────────┐
+│ Phase   │ Description                              │ Milestone Status       │
+├─────────┼──────────────────────────────────────────┼────────────────────────┤
+│ Phase 1 │ Research & Dataset Preparation           │ COMPLETED (Presented)  │
+│ Phase 2 │ Weather Data Pipeline & Parameters       │ COMPLETED (Presented)  │
+│ Phase 3 │ ML Solar Prediction Model (LSTM+XGBoost) │ COMPLETED (Presented)  │
+│ Phase 4 │ Community Demand Prediction Engine       │ COMPLETED (Presented)  │
+│ Phase 5 │ Heuristic Scheduler & Priority Allocator │ Scheduled for Final    │
+│ Phase 6 │ Full Integrated Dashboard & User Controls│ Scheduled for Final    │
+│ Phase 7 │ Testing, Validation & Final Deployment   │ Scheduled for Final    │
+└─────────┴──────────────────────────────────────────┴────────────────────────┘
+
+This interim package (`second/`) intentionally isolates Phases 1–4 to demonstrate
+rigorous engineering proof-of-concept before coupling the scheduler.
+
+================================================================================
+3. PHASE 1 & 2: DATA ENGINEERING & METEOROLOGICAL PIPELINE
+================================================================================
+3.1 Synthetic Physics Engine & Weather Variables:
+Due to the unavailability of proprietary IoT sensor feeds at the development
+stage, a realistic meteorological and physics generator (`data_gen.py`) was
+constructed using empirical solar geometry equations:
+
+• Solar Elevation & Clear-Sky Irradiance ($I_{cs}$):
+  Modeled using a diurnal sinusoidal arc bounded between sunrise (06:00) and
+  sunset (18:00), peaking at solar noon (12:00–13:00) with a zenith flux of 1000 W/m²:
+  $$I_{cs}(t) = \max\left(0, 1000 \cdot \sin\left(\frac{\pi (t - 6)}{12}\right)\right)$$
+
+• Cloud Cover Attenuation:
+  Cloud cover percentage $C \in [0, 100]$ acts as an optical attenuation filter:
+  $$I_{actual}(t) = I_{cs}(t) \cdot \left(1 - 0.75 \cdot \left(\frac{C}{100}\right)^2\right) + \epsilon$$
+
+• Photovoltaic Conversion Efficiency:
+  Solar power output (kW) accounts for system capacity ($P_{rated} = 25\text{ kW}$),
+  panel temperature derating ($-0.4\%/^\circ\text{C}$ above $25^\circ\text{C}$), and inverter loss:
+  $$P_{solar}(t) = P_{rated} \cdot \left(\frac{I_{actual}(t)}{1000}\right) \cdot [1 - 0.004 \cdot (T_{ambient} - 25)] \cdot \eta_{inverter}$$
+
+3.2 Dual-Peak Community Demand Modeling:
+Residential community load is modeled to reflect realistic human behavior:
+- Morning Peak (07:00 – 09:30): Water heating, breakfast prep, community pumps.
+- Afternoon Valley (11:00 – 16:00): Low occupancy, base load (refrigeration, standby).
+- Evening Peak (18:30 – 22:30): HVAC, lighting, cooking, home entertainment.
+- Baseline base load: 6.0 kW; Peak demand: Up to 28.5 kW.
+
+3.3 Relational SQLite Database Architecture:
+The system uses an embedded zero-configuration SQLite database (`solargrid.db`)
+with full indexing on timestamps:
+- Table `historical_readings`: 720 records spanning 30 days.
+  Columns: `timestamp`, `solar_generation_kw`, `grid_demand_kw`,
+           `solar_irradiance`, `cloud_cover`, `temperature_c`.
+- Table `appliances`: Pre-configured load profiles for water pumps & EV chargers.
+- Table `system_logs`: Audit trail for model training and data generation runs.
+
+================================================================================
+4. PHASE 3 & 4: MACHINE LEARNING FORECASTING ENGINE
+================================================================================
+The core requirement is to predict 24 hours ahead for both solar generation and
+community demand. A hybrid model structure was chosen to capture both sequential
+dependencies and feature interaction non-linearities:
+
+4.1 Deep Learning Model: PyTorch Stacked LSTM (`models/lstm_model.py`):
+- Architecture:
+  * Input layer: 6 features (Irradiance, Cloud Cover, Temp, Hour_sin, Hour_cos, Is_Weekend)
+  * Hidden layers: 2 stacked LSTM layers with 64 hidden units each
+  * Dropout: 0.15 between LSTM layers to prevent overfitting
+  * Fully connected head: Linear(64 -> 32) -> ReLU -> Linear(32 -> 1)
+  * Sequence lookback window: 24 preceding hours ($t-24$ to $t-1$) to predict hour $t$
+- Optimizer: Adam with learning rate $\alpha = 0.002$, weight decay $10^{-4}$
+- Loss function: Mean Squared Error (MSE)
+
+4.2 Extreme Gradient Boosting: XGBoost Regressor (`models/train_models.py`):
+- Hyper-parameters:
+  * `n_estimators`: 200 trees
+  * `learning_rate`: 0.05 (conservative shrinkage)
+  * `max_depth`: 5
+  * `subsample`: 0.85
+  * `colsample_bytree`: 0.85
+- Purpose: Robust regression over non-linear weather interaction thresholds
+  (e.g., cloud cover cutoffs and temperature inflection points).
+
+4.3 Hybrid Ensemble Strategy:
+- Final Solar Forecast:
+  $$\hat{Y}_{solar} = 0.60 \cdot \hat{Y}_{XGBoost} + 0.40 \cdot \hat{Y}_{LSTM}$$
+  Weights were determined by validation grid search; XGBoost excels on edge weather
+  spikes while LSTM preserves diurnal smoothness.
+- Demand Forecast:
+  Driven by XGBoost with day-of-week, hour encodings, and temperature correlation.
+
+4.4 Cyclical Temporal Encoding:
+To prevent artificial discontinuity between hour 23 (23:00) and hour 0 (00:00):
+$$\text{Hour}_{sin} = \sin\left(\frac{2\pi \cdot t}{24}\right), \quad \text{Hour}_{cos} = \cos\left(\frac{2\pi \cdot t}{24}\right)$$
+
+================================================================================
+5. EXPERIMENTAL RESULTS, METRICS & BENCHMARK VALIDATION
+================================================================================
+5.1 Holdout Test Set Evaluation:
+The 720-hour dataset was split chronologically:
+- Training Set: First 80% (576 hours / 24 days)
+- Holdout Evaluation Set: Last 20% (144 hours / 6 days)
+
+Evaluation Metrics:
+- Mean Absolute Error (MAE): $\frac{1}{n}\sum |y_i - \hat{y}_i|$
+- Root Mean Squared Error (RMSE): $\sqrt{\frac{1}{n}\sum (y_i - \hat{y}_i)^2}$
+- Mean Absolute Percentage Error (MAPE): $\frac{100\%}{n}\sum \left|\frac{y_i - \hat{y}_i}{y_i}\right|$ (computed during daylight hours for solar)
+
+Official Test Results:
+┌───────────────────────────┬──────────────┬──────────────┬──────────────┐
+│ Target Variable           │ MAE (kW)     │ RMSE (kW)    │ MAPE (%)     │
+├───────────────────────────┼──────────────┼──────────────┼──────────────┤
+│ Solar Generation (kW)     │ 1.34 kW      │ 3.13 kW      │ 9.14%        │
+│ Community Demand (kW)     │ 0.91 kW      │ 2.21 kW      │ 6.41%        │
+└───────────────────────────┴──────────────┴──────────────┴──────────────┘
+
+5.2 Model Comparison (Solar Forecasting):
+┌───────────────────────────┬──────────────┬──────────────┬──────────────┐
+│ Model                     │ MAE (kW)     │ RMSE (kW)    │ Training Time│
+├───────────────────────────┼──────────────┼──────────────┼──────────────┤
+│ Standalone PyTorch LSTM   │ 1.58 kW      │ 3.42 kW      │ 12.4 s       │
+│ Standalone XGBoost        │ 1.41 kW      │ 3.25 kW      │ 0.8 s        │
+│ SolarGrid Hybrid Ensemble │ 1.34 kW      │ 3.13 kW      │ 13.2 s       │
+└───────────────────────────┴──────────────┴──────────────┴──────────────┘
+Key Finding: The hybrid ensemble reduces MAE by 15.2% over single LSTM and 5.0%
+over standalone XGBoost, proving the academic value of the hybrid formulation.
+
+================================================================================
+6. ENERGY BALANCE ANALYSIS: THE BRIDGE TO LOAD SCHEDULING
+================================================================================
+The net energy balance $B(t)$ for each hour $t \in [0, 23]$ is defined as:
+$$B(t) = \hat{P}_{solar}(t) - \hat{P}_{demand}(t)$$
+
+Two distinct operational domains emerge:
+1. Surplus Window ($B(t) > 0$):
+   Typically occurs between 10:00 and 15:00, reaching peak net surplus of +14.2 kW.
+   Without intelligent scheduling, this energy is exported back to the grid at
+   a negligible feed-in rate (Rs 2.50/kWh).
+2. Deficit Window ($B(t) < 0$):
+   Occurs during night and morning/evening peak hours, requiring grid draw at
+   peak commercial rates (Rs 8.50/kWh).
+
+Conclusion for the Evaluation Committee:
+The prediction engine reliably maps the exact shape and magnitude of the surplus
+window 24 hours in advance. This output directly feeds the Phase 5 Heuristic
+Optimization Engine to schedule flexible loads (EVs and water pumps) into this
+surplus window without human intervention.
+
+================================================================================
+7. INTERIM DEMONSTRATION PACKAGE STRUCTURE (`second/` DIRECTORY)
+================================================================================
+The `second` directory is completely standalone and contains:
+
+second/
+├── app_interim.py             # Streamlit Review Dashboard (4 interactive tabs)
+├── data_gen.py                # Synthetic physics & weather generator
+├── solargrid.db               # Embedded SQLite database with 720 records
+├── requirements.txt           # Minimal dependencies for interim package
+├── PROJECT_MILESTONE_REPORT.txt # This academic milestone report
+├── database/
+│   ├── __init__.py
+│   └── db_manager.py          # Database schema initialization & queries
+└── models/
+    ├── __init__.py
+    ├── lstm_model.py          # PyTorch stacked LSTM network class
+    ├── train_models.py        # Training script with holdout validation
+    ├── forecast.py            # 24-hr multi-model inference pipeline
+    └── saved/                 # Serialized weights, scalers, and metric files
+        ├── lstm_solar.pt
+        ├── xgb_solar.joblib & xgb_solar.json
+        ├── xgb_demand.joblib & xgb_demand.json
+        ├── scaler_features.pkl, scaler_solar.pkl, scaler_demand.pkl
+        ├── feature_cols.json
+        └── metrics.json
+
+================================================================================
+8. EXECUTION & VERIFICATION GUIDE FOR EVALUATION COMMITTEE
+================================================================================
+To launch and review the interim prototype:
+
+Step 1: Open Terminal in the project root directory:
+   cd SOLAR_GRID
+
+Step 2: Activate virtual environment:
+   source .venv/bin/activate
+
+Step 3: Launch the dedicated interim dashboard:
+   streamlit run app_interim.py
+
+Dashboard Features for Evaluation:
+• Tab 1 (Data Exploration):
+  Examine historical weather correlations, irradiance distributions, and SQLite table.
+• Tab 2 (Model Architecture & Diagnostics):
+  Inspect LSTM architecture parameters, feature importances, and validation metrics table.
+• Tab 3 (24-Hour Predictive Forecast):
+  Adjust forecast date and weather scenarios (Clear Sky vs Overcast) to watch the
+  models dynamically recalculate 24-hour generation and demand curves.
+• Tab 4 (Surplus Analysis & Next Steps):
+  Visualize the net energy delta curve showing exact surplus kWh available for scheduling.
+
+================================================================================
+9. ROADMAP FOR FINAL SUBMISSION (PHASES 5–7)
+================================================================================
+Having successfully proved Phases 1–4 in this milestone, the remaining work
+for the final project submission encompasses:
+
+1. Phase 5: Heuristic Load Scheduler & Priority Allocation Engine
+   - Greedy-priority heuristic placing heavy loads into maximum surplus hours.
+   - Constraint enforcement: Non-interruptible EV charging blocks, water tank level
+     windows, and community peak demand capping.
+2. Phase 6: Society Management Portal & Appliance Control
+   - Appliance registry management (adding/toggling pumps, chargers).
+   - Financial savings ledger (Rupee cost savings vs. baseline ToD tariff).
+3. Phase 7: Real-Time Grid Telemetry & Hardware Interfacing
+   - Live telemetry simulation and comprehensive software deployment.
+
+================================================================================
+10. REFERENCES & ACADEMIC CITATIONS
+================================================================================
+[1] Hochreiter, S., & Schmidhuber, J. (1997). "Long Short-Term Memory".
+    Neural Computation, 9(8), 1735–1780.
+[2] Chen, T., & Guestrin, C. (2016). "XGBoost: A Scalable Tree Boosting System".
+    ACM SIGKDD International Conference on Knowledge Discovery and Data Mining.
+[3] Masters, G. M. (2004). "Renewable and Efficient Electric Power Systems".
+    John Wiley & Sons.
+[4] Central Electricity Authority (CEA), India. "Time of Day (ToD) Tariff Guidelines
+    and Residential Demand Side Management (DSM)". New Delhi.
+================================================================================

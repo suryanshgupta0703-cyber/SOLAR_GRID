@@ -1,0 +1,14 @@
+{
+  "solar": {
+    "mae": 1.338,
+    "rmse": 3.133,
+    "mape": 9.14
+  },
+  "demand": {
+    "mae": 0.913,
+    "rmse": 2.214,
+    "mape": 6.41
+  },
+  "test_samples": 144,
+  "split_ratio": "80/20 train/test"
+}

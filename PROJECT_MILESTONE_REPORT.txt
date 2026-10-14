@@ -6,6 +6,13 @@ Department of Computer Science and Engineering
 Model Institute of Engineering and Technology (Autonomous), Jammu, India - 2026
 Submitted by: Suryansh Gupta (Roll No: 2023a1r116)
 
+SUBMISSION SCOPE — `second/` IMPLEMENTS ONLY PHASES 1–4
+Completed in this folder: synthetic dataset generation, SQLite data persistence,
+solar and demand forecasting, model evaluation, and solar-surplus analysis.
+Not implemented in this folder: the Phase 5 load scheduler, Phase 6 integrated
+optimization dashboard, or Phase 7 final deployment work. These belong only to
+the complete `solargrid/` folder.
+
 ================================================================================
 TABLE OF CONTENTS
 ================================================================================

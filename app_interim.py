@@ -838,6 +838,117 @@ CREATE TABLE historical_energy (
     """, unsafe_allow_html=True)
 
 
+def organized_main():
+    """Render the Phase 1-4 dashboard using the shared five-section layout."""
+    forecast_date, use_lstm = render_sidebar()
+    st.markdown("""
+    <div style="padding: 8px 0 24px;">
+        <h1 style="font-size:2rem;margin:0;font-weight:800;">⚡ SolarGrid — Interim Review</h1>
+        <p style="color:#8892a4;margin:4px 0 0;font-size:0.92rem;">
+            Phases 1–4: data pipeline, trained forecasting models, and solar-surplus analysis
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    hist_df = load_historical()
+    with st.spinner("Running AI forecast engine..."):
+        solar_kw, demand_kw = load_forecast(forecast_date, use_lstm)
+
+    net = solar_kw - demand_kw
+    total_solar = float(solar_kw.sum())
+    total_demand = float(demand_kw.sum())
+    surplus_kwh = float(np.maximum(net, 0).sum())
+    surplus_hours = int((net > 0).sum())
+    metrics = load_model_metrics()
+
+    if not models_are_trained():
+        st.warning("Saved ML models are unavailable, so this view is using the physics-based fallback.")
+
+    overview, forecast_tab, scheduling_tab, savings_tab, model_tab = st.tabs([
+        "🏠 Overview", "☀️ Solar & Demand Forecast", "🗓 Smart Scheduling",
+        "💰 Energy & Savings", "🧠 Model Performance",
+    ])
+
+    with overview:
+        st.markdown('<p class="section-header">Completed Work at a Glance</p>', unsafe_allow_html=True)
+        records = len(hist_df) if not hist_df.empty else 0
+        coverage = ((hist_df["timestamp"].max() - hist_df["timestamp"].min()).days + 1
+                    if not hist_df.empty else 0)
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Dataset records", records)
+        k2.metric("Days of history", coverage)
+        k3.metric("Highest predicted solar", f"{float(solar_kw.max()):.1f} kW")
+        k4.metric("Extra solar available", f"{surplus_kwh:.1f} kWh")
+        st.plotly_chart(build_forecast_chart(solar_kw, demand_kw), use_container_width=True,
+                        config={"displayModeBar": False}, key="interim_overview_forecast")
+        status = ("Solar surplus is expected around midday. This identifies where future scheduling can focus."
+                  if surplus_hours else "No solar-surplus window is predicted for this date.")
+        st.info(status)
+
+    with forecast_tab:
+        st.markdown('<p class="section-header">Solar & Demand Forecast</p>', unsafe_allow_html=True)
+        st.caption("The forecast date and LSTM ensemble controls are available in the sidebar.")
+        st.plotly_chart(build_forecast_chart(solar_kw, demand_kw), use_container_width=True,
+                        config={"displayModeBar": False}, key="interim_detailed_forecast")
+        with st.expander("View hourly forecast values"):
+            st.dataframe(pd.DataFrame({
+                "Hour": [f"{hour:02d}:00" for hour in range(24)],
+                "Solar generation (kW)": np.round(solar_kw, 2),
+                "Electricity demand (kW)": np.round(demand_kw, 2),
+                "Net power (kW)": np.round(net, 2),
+            }), use_container_width=True, hide_index=True)
+
+    with scheduling_tab:
+        st.markdown('<p class="section-header">Smart Scheduling — Planned Phase 5</p>', unsafe_allow_html=True)
+        st.warning("No appliance scheduler is implemented in this interim submission.")
+        st.markdown("The completed forecasting engine identifies the hours a future scheduler should evaluate.")
+        if surplus_hours:
+            start = int(np.argmax(net > 0))
+            end = 23 - int(np.argmax((net > 0)[::-1])) + 1
+            st.success(f"Potential solar-surplus window: {start:02d}:00–{end:02d}:00 "
+                       f"({surplus_kwh:.1f} kWh available).")
+        else:
+            st.info("No suitable solar-surplus window was found for this forecast.")
+        st.caption("Water-pump and EV-charger schedules, solar/grid allocation, and savings are deliberately excluded until Phase 5.")
+
+    with savings_tab:
+        st.markdown('<p class="section-header">Energy Balance — Planned Phase 6</p>', unsafe_allow_html=True)
+        st.plotly_chart(build_net_energy_chart(solar_kw, demand_kw), use_container_width=True,
+                        config={"displayModeBar": False})
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Solar energy generated", f"{total_solar:.1f} kWh")
+        c2.metric("Expected electricity use", f"{total_demand:.1f} kWh")
+        c3.metric("Extra solar available", f"{surplus_kwh:.1f} kWh")
+        st.info("Grid-cost and saving calculations require the Phase 5 scheduler and are not implemented in this interim submission.")
+
+    with model_tab:
+        st.markdown('<p class="section-header">Model Performance</p>', unsafe_allow_html=True)
+        st.caption("Solar generation: LSTM + XGBoost ensemble. Electricity demand: XGBoost.")
+        if metrics:
+            solar_metrics, demand_metrics = metrics.get("solar", {}), metrics.get("demand", {})
+            m1, m2 = st.columns(2)
+            with m1:
+                st.markdown("#### Solar-generation prediction error")
+                st.metric("MAE", f"{solar_metrics.get('mae', 'N/A')} kW")
+                st.metric("RMSE", f"{solar_metrics.get('rmse', 'N/A')} kW")
+                st.metric("MAPE", f"{solar_metrics.get('mape', 'N/A')}%")
+            with m2:
+                st.markdown("#### Electricity-demand prediction error")
+                st.metric("MAE", f"{demand_metrics.get('mae', 'N/A')} kW")
+                st.metric("RMSE", f"{demand_metrics.get('rmse', 'N/A')} kW")
+                st.metric("MAPE", f"{demand_metrics.get('mape', 'N/A')}%")
+        if not hist_df.empty:
+            st.markdown("#### Historical data")
+            st.plotly_chart(build_historical_generation_chart(hist_df), use_container_width=True,
+                            config={"displayModeBar": False})
+
+    st.markdown("""
+    <div style="text-align:center;padding:30px 0 10px;color:#4a5568;font-size:0.78rem;">
+        SolarGrid v0.5 (Interim) · Phases 1–4 · Synthetic-data forecasting prototype
+    </div>
+    """, unsafe_allow_html=True)
+
+
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    main()
+    organized_main()

@@ -1,12 +1,13 @@
-"""Standard entry point for the SolarGrid Phase 1–4 interim submission.
+"""SolarGrid — Smart Solar Load Optimization Dashboard.
 
-The complete Phase 1–7 application, including appliance scheduling and
-optimization KPIs, is intentionally kept in ../solargrid/ for the final
-seminar submission.
+Entry point for the full Phase 1–7 production system.
+Run with: streamlit run app.py
 """
 
-from app_interim import organized_main as main
-
+try:
+    from app_v2 import organized_main as main
+except ImportError:
+    from app_interim import organized_main as main
 
 if __name__ == "__main__":
     main()

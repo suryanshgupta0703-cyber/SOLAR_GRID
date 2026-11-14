@@ -80,20 +80,49 @@ def models_are_trained() -> bool:
 # Feature Engineering for Inference
 # ===========================================================================
 
-def _build_inference_features(target_date: datetime | None = None) -> pd.DataFrame:
+REQUIRED_FEATURE_COLS = [
+    "temperature_c", "cloud_cover_pct", "solar_irradiance_wm2",
+    "hour_sin", "hour_cos", "dow_sin", "dow_cos", "day_of_year",
+]
+
+
+def _build_inference_features(
+    target_date: datetime | None = None,
+    live_weather_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     """
     Construct a 24-row DataFrame of weather features for the next 24 hours.
 
-    In a production system this would call a real weather API.  Here we use
-    the same physics-based model as data_gen.py but for "today".
+    If *live_weather_df* is supplied (a DataFrame returned by
+    ``data_fetcher.fetch_live_forecast()``), it is validated and returned
+    directly so that real Open-Meteo data drives the forecast.  Otherwise
+    the function falls back to the same physics-based synthetic model used
+    during training.
 
     Args:
-        target_date: Starting datetime for the 24-hour window. Defaults to
-                     today at midnight (local time).
+        target_date:     Starting datetime for the 24-hour window (synthetic
+                         path only).  Defaults to today at midnight (local time).
+        live_weather_df: Optional real-weather DataFrame with the required
+                         feature columns.  When present, the synthetic path is
+                         skipped entirely.
 
     Returns:
         DataFrame with the same feature columns used during training.
     """
+    # ------------------------------------------------------------------
+    # Live-weather path
+    # ------------------------------------------------------------------
+    if live_weather_df is not None:
+        missing = [c for c in REQUIRED_FEATURE_COLS if c not in live_weather_df.columns]
+        if missing:
+            print(f"[forecast] ⚠ live_weather_df is missing columns {missing}; "
+                  "falling back to synthetic features.")
+        else:
+            return live_weather_df[REQUIRED_FEATURE_COLS].reset_index(drop=True)
+
+    # ------------------------------------------------------------------
+    # Synthetic / physics path (original implementation)
+    # ------------------------------------------------------------------
     if target_date is None:
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     else:
@@ -178,7 +207,8 @@ def _physics_fallback() -> tuple[np.ndarray, np.ndarray]:
 # ===========================================================================
 
 def get_24hr_forecast(target_date: datetime | None = None,
-                      use_lstm: bool = True) -> tuple[np.ndarray, np.ndarray]:
+                      use_lstm: bool = True,
+                      live_weather_df: pd.DataFrame | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     Return a 24-hour hourly forecast of solar generation and demand.
 
@@ -187,9 +217,13 @@ def get_24hr_forecast(target_date: datetime | None = None,
         predicted_demand = xgb_demand_pred
 
     Args:
-        target_date: Forecast start date (defaults to today at midnight).
-        use_lstm:    If False, skip LSTM and use only XGBoost.
-                     Useful for fast iteration during development.
+        target_date:     Forecast start date (defaults to today at midnight).
+        use_lstm:        If False, skip LSTM and use only XGBoost.
+                         Useful for fast iteration during development.
+        live_weather_df: Optional real-weather DataFrame from
+                         ``data_fetcher.fetch_live_forecast()``.  When provided,
+                         it is passed through to ``_build_inference_features``
+                         instead of the synthetic physics model.
 
     Returns:
         Tuple (predicted_solar_kw, predicted_demand_kw):
@@ -249,7 +283,7 @@ def get_24hr_forecast(target_date: datetime | None = None,
     seq_len  = _cache["seq_len"]
 
     # ---- Build feature DataFrame for the 24 inference hours ------------
-    feat_df      = _build_inference_features(target_date)
+    feat_df      = _build_inference_features(target_date, live_weather_df=live_weather_df)
     feat_scaled  = sc_feat.transform(feat_df.values).astype(np.float32)
 
     # ---- XGBoost inference ---------------------------------------------

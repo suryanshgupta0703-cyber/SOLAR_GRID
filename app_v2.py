@@ -63,20 +63,10 @@ except ImportError:
     DEFAULT_APPLIANCES = []  # type: ignore
 
 # ===========================================================================
-# Page configuration
+# Global CSS — injected on every run from organized_main(); module-level
+# Streamlit calls would only run on the first import of this module.
 # ===========================================================================
-st.set_page_config(
-    page_title="SolarGrid Dashboard",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# ===========================================================================
-# Global CSS — dark glassmorphism theme  (copied verbatim from app_interim.py)
-# + new .ai-summary-box class for Tab 5
-# ===========================================================================
-st.markdown("""
+_GLOBAL_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
@@ -207,7 +197,7 @@ div[data-testid="metric-container"] {
     color: #ff6b6b; font-size: 0.88rem;
 }
 </style>
-""", unsafe_allow_html=True)
+"""
 
 
 # ===========================================================================
@@ -583,7 +573,6 @@ def build_gantt_chart(
         ),
         legend=dict(orientation="h", yanchor="bottom", y=1.02,
                     xanchor="center", x=0.5, font=dict(size=11)),
-        title=dict(text="📅 Appliance Schedule Gantt Chart", font=dict(size=14)),
     )
     return fig
 
@@ -659,7 +648,6 @@ def build_power_balance_chart(
         xaxis=dict(title="Hour of Day", gridcolor="rgba(255,255,255,0.06)", tickangle=-45),
         yaxis=dict(title="Power (kW)", gridcolor="rgba(255,255,255,0.06)"),
         hovermode="x unified",
-        title=dict(text="⚡ 24-Hour Power Balance", font=dict(size=14)),
     )
     return fig
 
@@ -771,7 +759,14 @@ def render_sidebar() -> tuple:
 # ===========================================================================
 
 def organized_main():
-    """Full Phase 5–7 dashboard — entry point (backwards-compatible name)."""
+    """Dashboard entry point."""
+    st.set_page_config(
+        page_title="SolarGrid Dashboard",
+        page_icon="⚡",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
 
     # ---- Sidebar -------------------------------------------------------
     forecast_date, use_lstm, data_mode, selected_city, city_lat, city_lon = render_sidebar()
@@ -1330,10 +1325,7 @@ CREATE TABLE historical_energy (
             # ---- Appliance Configuration Panel -------------------------
             st.markdown('<p class="section-header">🔧 Appliance Configuration</p>',
                         unsafe_allow_html=True)
-            st.caption(
-                "Toggle appliances on/off before running the scheduler. "
-                "Disabled appliances are excluded from the optimisation."
-            )
+            st.caption("Disabled appliances are excluded from the optimisation.")
 
             enabled_appliances = []
             appl_cols = st.columns(len(DEFAULT_APPLIANCES))

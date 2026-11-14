@@ -239,83 +239,30 @@ def load_forecast(forecast_date: date, use_lstm: bool) -> tuple[np.ndarray, np.n
 
 
 @st.cache_data(ttl=300)
+def _live_forecast_cached(lat: float, lon: float, city_name: str, forecast_date: date,
+                          use_lstm: bool) -> tuple[np.ndarray, np.ndarray]:
+    """Fetch one calendar day of Open-Meteo weather and run the ML models on it.
+
+    Raises on failure so Streamlit does not cache a failed fetch.
+    """
+    live_df = fetch_live_forecast(lat=lat, lon=lon, city_name=city_name,
+                                  target_date=forecast_date)
+    if live_df is None or len(live_df) != 24:
+        raise ValueError("Live forecast unavailable or incomplete")
+    return get_24hr_forecast(use_lstm=use_lstm, live_weather_df=live_df)
+
+
 def load_live_forecast(lat: float, lon: float, city_name: str, forecast_date: date,
                        use_lstm: bool) -> tuple[np.ndarray, np.ndarray, bool]:
-    """
-    Fetch live weather from Open-Meteo for one calendar day and run ML models on it.
-
-    Returns (solar_kw, demand_kw, used_live) where used_live=True when real
-    data was successfully fetched.
-    """
-    if not _HAS_DATA_FETCHER or fetch_live_forecast is None:
-        solar, demand = load_forecast(forecast_date, use_lstm)
-        return solar, demand, False
-
-    try:
-        live_df = fetch_live_forecast(lat=lat, lon=lon, city_name=city_name,
-                                      target_date=forecast_date)
-        if live_df is None or len(live_df) != 24:
-            raise ValueError("Live forecast unavailable or incomplete")
-
-        # Feed into ML models via forecast module internals
-        from models.forecast import _cache as _fcache, models_are_trained as _mtr
-        from models.forecast import _physics_fallback, LSTM_WEIGHT, XGB_WEIGHT
-
-        if not _mtr():
-            solar, demand = _physics_fallback()
-            return solar, demand, True  # live weather used but physics fallback for power
-
-        import joblib, torch
-        from models.forecast import (
-            SCALER_FEAT, SCALER_SOL, SCALER_DEM,
-            LSTM_PATH, XGB_SOLAR_JOBLIB, XGB_SOLAR_JSON,
-            XGB_DEMAND_JOBLIB, XGB_DEMAND_JSON,
-        )
-
-        # Ensure cache is warm
-        if not _fcache:
-            # Trigger lazy load by calling get_24hr_forecast once
-            get_24hr_forecast(use_lstm=use_lstm)
-
-        sc_feat = _fcache["sc_feat"]
-        sc_sol  = _fcache["sc_sol"]
-        sc_dem  = _fcache["sc_dem"]
-        xgb_sol = _fcache["xgb_sol"]
-        xgb_dem = _fcache["xgb_dem"]
-        lstm    = _fcache["lstm"]
-        seq_len = _fcache["seq_len"]
-
-        feat_scaled = sc_feat.transform(live_df.values).astype(np.float32)
-
-        xgb_solar_scaled  = xgb_sol.predict(feat_scaled)
-        xgb_demand_scaled = xgb_dem.predict(feat_scaled)
-        xgb_solar_kw  = sc_sol.inverse_transform(xgb_solar_scaled.reshape(-1, 1)).ravel()
-        xgb_demand_kw = sc_dem.inverse_transform(xgb_demand_scaled.reshape(-1, 1)).ravel()
-
-        if use_lstm:
-            warmup   = np.tile(feat_scaled[0], (seq_len, 1))
-            full_seq = np.vstack([warmup, feat_scaled])
-            lstm_preds_scaled = []
-            lstm.eval()
-            with torch.no_grad():
-                for h in range(24):
-                    window = full_seq[h: h + seq_len]
-                    x_t = torch.tensor(window).unsqueeze(0)
-                    lstm_preds_scaled.append(lstm(x_t).item())
-            lstm_solar_kw = sc_sol.inverse_transform(
-                np.array(lstm_preds_scaled).reshape(-1, 1)).ravel()
-            solar_kw = LSTM_WEIGHT * lstm_solar_kw + XGB_WEIGHT * xgb_solar_kw
-        else:
-            solar_kw = xgb_solar_kw
-
-        solar_kw  = np.clip(solar_kw,  0.0, 55.0)
-        demand_kw = np.clip(xgb_demand_kw, 3.0, 55.0)
-        return solar_kw.astype(np.float64), demand_kw.astype(np.float64), True
-
-    except Exception as exc:
-        print(f"[app_v2] ⚠ Live forecast failed: {exc}. Falling back to benchmark.")
-        solar, demand = load_forecast(forecast_date, use_lstm)
-        return solar, demand, False
+    """Return (solar_kw, demand_kw, used_live); falls back to the benchmark forecast."""
+    if _HAS_DATA_FETCHER and fetch_live_forecast is not None:
+        try:
+            solar, demand = _live_forecast_cached(lat, lon, city_name, forecast_date, use_lstm)
+            return solar, demand, True
+        except Exception as exc:
+            print(f"[app_v2] ⚠ Live forecast failed for {city_name}: {exc}. Falling back to benchmark.")
+    solar, demand = load_forecast(forecast_date, use_lstm)
+    return solar, demand, False
 
 
 def load_model_metrics() -> dict:
@@ -892,13 +839,14 @@ def organized_main():
     # ====================================================================
     # TAB LAYOUT — 6 tabs total
     # ====================================================================
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📊 Data Exploration",
-        "🧠 Model Architecture & Evaluation",
+    # Display order: forecast-driven tabs first, static dataset/model tabs last
+    tab3, tab4, tab5, tab6, tab1, tab2 = st.tabs([
         "📈 24-Hour Forecast",
         "⚖ Surplus Analysis",
         "🌿 Carbon & Savings",
         "⚙️ Smart Scheduler",
+        "📊 Data Exploration",
+        "🧠 Model Architecture & Evaluation",
     ])
 
     # ====================================================================

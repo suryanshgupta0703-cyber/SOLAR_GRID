@@ -20,6 +20,7 @@ Dependencies
 
 import json
 import math
+import time
 import numpy as np
 import pandas as pd
 from datetime import date, datetime, timedelta, timezone
@@ -35,6 +36,7 @@ USER_AGENT = "SolarGrid/1.0 (Academic Project)"
 # Network timeout (seconds)
 # ---------------------------------------------------------------------------
 _TIMEOUT = 15
+_RETRIES = 3
 
 # ---------------------------------------------------------------------------
 # Solar physics constants (mirrors data_gen.py)
@@ -75,16 +77,23 @@ def _get_json(url: str) -> dict | None:
         Parsed JSON dict, or None if any network/HTTP error occurs.
     """
     req = Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urlopen(req, timeout=_TIMEOUT) as resp:
-            raw = resp.read()
-            return json.loads(raw.decode("utf-8"))
-    except HTTPError as exc:
-        print(f"[data_fetcher] ⚠ HTTP {exc.code} fetching {url}: {exc.reason}")
-    except URLError as exc:
-        print(f"[data_fetcher] ⚠ Network error fetching {url}: {exc.reason}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"[data_fetcher] ⚠ Unexpected error fetching {url}: {exc}")
+    for attempt in range(1, _RETRIES + 1):
+        try:
+            with urlopen(req, timeout=_TIMEOUT) as resp:
+                raw = resp.read()
+                return json.loads(raw.decode("utf-8"))
+        except HTTPError as exc:
+            print(f"[data_fetcher] ⚠ HTTP {exc.code} fetching {url}: {exc.reason}")
+            if exc.code < 500:
+                return None
+        except (URLError, TimeoutError) as exc:
+            print(f"[data_fetcher] ⚠ Network error (attempt {attempt}/{_RETRIES}) fetching {url}: "
+                  f"{getattr(exc, 'reason', exc)}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[data_fetcher] ⚠ Unexpected error fetching {url}: {exc}")
+            return None
+        if attempt < _RETRIES:
+            time.sleep(attempt)
     return None
 
 

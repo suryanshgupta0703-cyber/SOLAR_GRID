@@ -1,18 +1,13 @@
 """
-SolarGrid — Full Production Dashboard  (app_v2.py)
-====================================================
-Phases 5–7 augmentation of the existing Phase 1–4 dashboard (app_interim.py).
+SolarGrid — Dashboard  (app_v2.py)
+==================================
+Tabs: Data Exploration · Model Architecture & Evaluation · 24-Hour Forecast ·
+Surplus Analysis · Carbon & Savings · Smart Scheduler.
 
-New tabs added after the existing four:
-  Tab 5 — 🌿 Carbon & Savings  : AI summary, carbon KPIs, financial KPIs
-  Tab 6 — ⚙️ Smart Scheduler   : Appliance config, Gantt chart, power balance
-
-New sidebar additions:
-  • Data Source Mode radio (Historical Benchmark | Live City Forecast)
-  • City dropdown (when Live mode selected)
+Sidebar: data source (Historical Benchmark | Live City Forecast), city, forecast date.
 
 Run:
-    streamlit run app_v2.py
+    streamlit run app.py
 """
 
 import os
@@ -71,7 +66,7 @@ except ImportError:
 # Page configuration
 # ===========================================================================
 st.set_page_config(
-    page_title="SolarGrid — Full Dashboard",
+    page_title="SolarGrid Dashboard",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -103,6 +98,11 @@ html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-primary);
     color: var(--text-primary);
+}
+
+.block-container, [data-testid="stMainBlockContainer"] {
+    max-width: 100% !important;
+    padding: 3rem 2rem 2rem 2rem !important;
 }
 
 [data-testid="stSidebar"] {
@@ -239,28 +239,23 @@ def load_forecast(forecast_date: date, use_lstm: bool) -> tuple[np.ndarray, np.n
 
 
 @st.cache_data(ttl=300)
-def load_live_forecast(lat: float, lon: float, city_name: str, use_lstm: bool) -> tuple[np.ndarray, np.ndarray, bool]:
+def load_live_forecast(lat: float, lon: float, city_name: str, forecast_date: date,
+                       use_lstm: bool) -> tuple[np.ndarray, np.ndarray, bool]:
     """
-    Fetch live weather from Open-Meteo and run ML models on it.
+    Fetch live weather from Open-Meteo for one calendar day and run ML models on it.
 
     Returns (solar_kw, demand_kw, used_live) where used_live=True when real
     data was successfully fetched.
     """
     if not _HAS_DATA_FETCHER or fetch_live_forecast is None:
-        solar, demand = get_24hr_forecast(use_lstm=use_lstm)
+        solar, demand = load_forecast(forecast_date, use_lstm)
         return solar, demand, False
 
     try:
-        live_df = fetch_live_forecast(lat=lat, lon=lon, city_name=city_name)
-        if live_df is None or live_df.empty:
-            raise ValueError("Empty live forecast")
-
-        # Pad/trim to 24 rows
-        if len(live_df) < 24:
-            # Pad by repeating last row
-            pad = pd.concat([live_df.iloc[[-1]]] * (24 - len(live_df)), ignore_index=True)
-            live_df = pd.concat([live_df, pad], ignore_index=True)
-        live_df = live_df.iloc[:24]
+        live_df = fetch_live_forecast(lat=lat, lon=lon, city_name=city_name,
+                                      target_date=forecast_date)
+        if live_df is None or len(live_df) != 24:
+            raise ValueError("Live forecast unavailable or incomplete")
 
         # Feed into ML models via forecast module internals
         from models.forecast import _cache as _fcache, models_are_trained as _mtr
@@ -319,7 +314,7 @@ def load_live_forecast(lat: float, lon: float, city_name: str, use_lstm: bool) -
 
     except Exception as exc:
         print(f"[app_v2] ⚠ Live forecast failed: {exc}. Falling back to benchmark.")
-        solar, demand = get_24hr_forecast(use_lstm=use_lstm)
+        solar, demand = load_forecast(forecast_date, use_lstm)
         return solar, demand, False
 
 
@@ -503,7 +498,7 @@ def build_historical_generation_chart(df: pd.DataFrame) -> go.Figure:
 
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        height=380,
+        height=520,
         margin=dict(l=60, r=30, t=30, b=50),
         legend=dict(orientation="h", yanchor="bottom", y=1.02,
                     xanchor="center", x=0.5),
@@ -687,12 +682,12 @@ def build_power_balance_chart(
             if 0 <= h < 24:
                 load[h] = pwr
         colour = appl_colours[idx % len(appl_colours)]
+        r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
         fig.add_trace(go.Scatter(
             x=hour_lbls,
             y=cumulative + load,
             fill="tonexty",
-            fillcolor=colour.replace(")", ", 0.22)").replace("rgb(", "rgba(")
-                       if colour.startswith("rgb") else colour + "38",
+            fillcolor=f"rgba({r}, {g}, {b}, 0.22)",
             line=dict(color=colour, width=1.5, dash="dot"),
             name=f"🔌 {appl_name}",
             hovertemplate=f"{appl_name}<br>" + "%{x}<br>Load: <b>%{y:.1f} kW</b><extra></extra>",
@@ -742,8 +737,6 @@ def render_sidebar() -> tuple:
                         -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
                 SolarGrid
             </div>
-            <div style="font-size:0.72rem;color:#8892a4;letter-spacing:0.12em;
-                        text-transform:uppercase;">Full Production Dashboard</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -789,7 +782,8 @@ def render_sidebar() -> tuple:
             value=date.today(),
             min_value=date.today() - timedelta(days=30),
             max_value=date.today() + timedelta(days=7),
-            help="Select the day for the 24-hour energy forecast",
+            help="Day for the 24-hour (00:00–23:00) forecast. "
+                 "In Live mode, weather for this day is fetched from Open-Meteo.",
         )
 
         use_lstm = st.toggle(
@@ -804,8 +798,7 @@ def render_sidebar() -> tuple:
         st.caption(
             "**Candidate:** Suryansh Gupta\n\n"
             "**Roll No:** 2023a1r116\n\n"
-            "**Dept:** CSE, MIET Autonomous, Jammu\n\n"
-            "**Milestone:** Phases 5–7 (Scheduling, Carbon & Live Data)"
+            "**Dept:** CSE, MIET Autonomous, Jammu"
         )
 
         st.divider()
@@ -823,9 +816,6 @@ def render_sidebar() -> tuple:
         if not trained:
             st.caption("Run `python models/train_models.py` to train the ML models.")
 
-        st.markdown("---")
-        st.caption("© 2024 SolarGrid · Full Dashboard v1.0")
-
     return forecast_date, use_lstm, data_mode, selected_city, city_lat, city_lon
 
 
@@ -842,14 +832,7 @@ def organized_main():
 
     # ---- Page Header ---------------------------------------------------
     st.markdown("""
-    <div style="padding: 8px 0 24px;">
-        <h1 style="font-size:2rem;margin:0;font-weight:800;">
-            ⚡ SolarGrid — Full Production Dashboard
-        </h1>
-        <p style="color:#8892a4;margin:4px 0 0;font-size:0.92rem;">
-            Phases 1–7: Data Pipeline · ML Forecasting · Heuristic Scheduling · Carbon & Savings Analytics
-        </p>
-    </div>
+    <h1 style="font-size:2rem;margin:0 0 16px;font-weight:800;">⚡ SolarGrid Dashboard</h1>
     """, unsafe_allow_html=True)
 
     # ---- Load data & forecast ------------------------------------------
@@ -858,13 +841,14 @@ def organized_main():
     if is_live:
         with st.spinner(f"🌐 Fetching live weather for {selected_city} from Open-Meteo…"):
             solar_kw, demand_kw, used_live = load_live_forecast(
-                city_lat, city_lon, selected_city, use_lstm
+                city_lat, city_lon, selected_city, forecast_date, use_lstm
             )
         if used_live:
             now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
             st.markdown(
-                f'<div class="live-banner">🌐 Live Weather — fetched from Open-Meteo for '
-                f'<b>{selected_city}</b> at {now_str}. This is real forecast data for your city.</div>',
+                f'<div class="live-banner">🌐 Live Weather — Open-Meteo forecast for '
+                f'<b>{selected_city}</b> on <b>{forecast_date:%d %b %Y}</b> '
+                f'(00:00–23:00 local time) · fetched at {now_str}</div>',
                 unsafe_allow_html=True,
             )
         else:
@@ -912,7 +896,7 @@ def organized_main():
         "📊 Data Exploration",
         "🧠 Model Architecture & Evaluation",
         "📈 24-Hour Forecast",
-        "⚖ Surplus Analysis & Next Steps",
+        "⚖ Surplus Analysis",
         "🌿 Carbon & Savings",
         "⚙️ Smart Scheduler",
     ])
@@ -921,7 +905,7 @@ def organized_main():
     # TAB 1: Data Exploration  (Phase 1 & 2 — verbatim from app_interim.py)
     # ====================================================================
     with tab1:
-        st.markdown('<p class="section-header">📊 Phase 1 & 2: Historical Data Exploration</p>',
+        st.markdown('<p class="section-header">📊 Historical Data Exploration (Synthetic Dataset)</p>',
                     unsafe_allow_html=True)
 
         if hist_df.empty:
@@ -965,16 +949,17 @@ def organized_main():
                 """, unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown('<p class="section-header">🌦 Weather Parameter Time-Series (30 Days)</p>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(build_weather_correlation_chart(hist_df),
-                            use_container_width=True, config={"displayModeBar": False})
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown('<p class="section-header">☀ Historical Solar Generation vs Community Demand</p>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(build_historical_generation_chart(hist_df),
-                            use_container_width=True, config={"displayModeBar": False})
+            wc1, wc2 = st.columns(2, gap="large")
+            with wc1:
+                st.markdown('<p class="section-header">🌦 Weather Parameter Time-Series (30 Days)</p>',
+                            unsafe_allow_html=True)
+                st.plotly_chart(build_weather_correlation_chart(hist_df),
+                                use_container_width=True, config={"displayModeBar": False})
+            with wc2:
+                st.markdown('<p class="section-header">☀ Historical Solar Generation vs Community Demand</p>',
+                            unsafe_allow_html=True)
+                st.plotly_chart(build_historical_generation_chart(hist_df),
+                                use_container_width=True, config={"displayModeBar": False})
 
             with st.expander("🗄️ SQLite Database Schema & Sample Data"):
                 st.code("""
@@ -1000,7 +985,7 @@ CREATE TABLE historical_energy (
     # TAB 2: Model Architecture & Evaluation  (verbatim from app_interim.py)
     # ====================================================================
     with tab2:
-        st.markdown('<p class="section-header">🧠 Phase 3 & 4: ML Model Architecture & Evaluation</p>',
+        st.markdown('<p class="section-header">🧠 ML Model Architecture & Evaluation</p>',
                     unsafe_allow_html=True)
 
         arch_col1, arch_col2 = st.columns(2, gap="large")
@@ -1045,42 +1030,44 @@ CREATE TABLE historical_energy (
             )
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<p class="section-header">🔗 Hybrid Ensemble Strategy</p>',
-                    unsafe_allow_html=True)
-        st.markdown("""
-        **Solar forecast uses a weighted ensemble blend:**
-        ```
-        Solar_forecast(h) = 0.55 × LSTM_pred(h) + 0.45 × XGB_solar_pred(h)
-        ```
-        **Demand forecast uses XGBoost only** (demand patterns are more feature-driven than temporal):
-        ```
-        Demand_forecast(h) = XGB_demand_pred(h)
-        ```
-        """)
+        ens_col, feat_col = st.columns(2, gap="large")
+        with ens_col:
+            st.markdown('<p class="section-header">🔗 Hybrid Ensemble Strategy</p>',
+                        unsafe_allow_html=True)
+            st.markdown("""
+            **Solar forecast uses a weighted ensemble blend:**
+            ```
+            Solar_forecast(h) = 0.55 × LSTM_pred(h) + 0.45 × XGB_solar_pred(h)
+            ```
+            **Demand forecast uses XGBoost only** (demand patterns are more feature-driven than temporal):
+            ```
+            Demand_forecast(h) = XGB_demand_pred(h)
+            ```
+            """)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<p class="section-header">⚙️ Feature Engineering</p>', unsafe_allow_html=True)
-        feat_cols_path = PROJECT_ROOT / "models" / "saved" / "feature_cols.json"
-        if feat_cols_path.exists():
-            with open(feat_cols_path) as f:
-                feat_cols = json.load(f)
-            feat_desc = {
-                "temperature_c": "Ambient temperature (°C) — affects panel efficiency (inverse relationship)",
-                "cloud_cover_pct": "Cloud coverage (0–100%) — primary attenuator of solar irradiance",
-                "solar_irradiance_wm2": "Solar irradiance at panel surface (W/m²) — direct energy driver",
-                "hour_sin": "sin(2π·hour/24) — circular encoding of time of day",
-                "hour_cos": "cos(2π·hour/24) — circular encoding of time of day",
-                "dow_sin": "sin(2π·day_of_week/7) — circular day-of-week encoding",
-                "dow_cos": "cos(2π·day_of_week/7) — circular day-of-week encoding",
-                "day_of_year": "Day of year (1–365) — captures seasonal variation",
-            }
-            feat_df = pd.DataFrame([
-                {"Feature": col, "Description": feat_desc.get(col, "")}
-                for col in feat_cols
-            ])
-            st.dataframe(feat_df, use_container_width=True, hide_index=True)
-        else:
-            st.caption("Feature columns not available — run `python models/train_models.py`.")
+        with feat_col:
+            st.markdown('<p class="section-header">⚙️ Feature Engineering</p>', unsafe_allow_html=True)
+            feat_cols_path = PROJECT_ROOT / "models" / "saved" / "feature_cols.json"
+            if feat_cols_path.exists():
+                with open(feat_cols_path) as f:
+                    feat_cols = json.load(f)
+                feat_desc = {
+                    "temperature_c": "Ambient temperature (°C) — affects panel efficiency (inverse relationship)",
+                    "cloud_cover_pct": "Cloud coverage (0–100%) — primary attenuator of solar irradiance",
+                    "solar_irradiance_wm2": "Solar irradiance at panel surface (W/m²) — direct energy driver",
+                    "hour_sin": "sin(2π·hour/24) — circular encoding of time of day",
+                    "hour_cos": "cos(2π·hour/24) — circular encoding of time of day",
+                    "dow_sin": "sin(2π·day_of_week/7) — circular day-of-week encoding",
+                    "dow_cos": "cos(2π·day_of_week/7) — circular day-of-week encoding",
+                    "day_of_year": "Day of year (1–365) — captures seasonal variation",
+                }
+                feat_df = pd.DataFrame([
+                    {"Feature": col, "Description": feat_desc.get(col, "")}
+                    for col in feat_cols
+                ])
+                st.dataframe(feat_df, use_container_width=True, hide_index=True)
+            else:
+                st.caption("Feature columns not available — run `python models/train_models.py`.")
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<p class="section-header">🎯 Holdout Test-Set Evaluation Metrics</p>',
@@ -1156,25 +1143,25 @@ CREATE TABLE historical_energy (
             """, unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.plotly_chart(build_forecast_chart(solar_kw, demand_kw),
-                        use_container_width=True, config={"displayModeBar": False},
-                        key="tab3_forecast")
+        chart_col, table_col = st.columns([2, 1], gap="large")
+        with chart_col:
+            st.plotly_chart(build_forecast_chart(solar_kw, demand_kw),
+                            use_container_width=True, config={"displayModeBar": False},
+                            key="tab3_forecast")
 
-        sc1, sc2, sc3 = st.columns(3)
-        with sc1:
-            st.metric("☀ Total Solar Generated", f"{total_solar:.1f} kWh")
-        with sc2:
-            st.metric("🌤 Solar Surplus Available", f"{surplus_kwh:.1f} kWh",
-                      delta=f"{surplus_hrs} surplus hours")
-        with sc3:
-            net_total = total_solar - total_demand
-            st.metric("⚖ Day Net Balance",
-                      f"{net_total:+.1f} kWh",
-                      delta="Surplus" if net_total >= 0 else "Deficit",
-                      delta_color="normal" if net_total >= 0 else "inverse")
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                st.metric("🌤 Solar Surplus Available", f"{surplus_kwh:.1f} kWh",
+                          delta=f"{surplus_hrs} surplus hours")
+            with sc2:
+                net_total = total_solar - total_demand
+                st.metric("⚖ Day Net Balance",
+                          f"{net_total:+.1f} kWh",
+                          delta="Surplus" if net_total >= 0 else "Deficit",
+                          delta_color="normal" if net_total >= 0 else "inverse")
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        with st.expander("📋 View Raw Hourly Forecast Data"):
+        with table_col:
+            st.markdown("**📋 Hourly Forecast Data**")
             df_display = pd.DataFrame({
                 "Hour":        [f"{h:02d}:00" for h in range(24)],
                 "Solar (kW)":  np.round(solar_kw,  2),
@@ -1191,61 +1178,31 @@ CREATE TABLE historical_energy (
             except Exception:
                 styled = df_display.style.format(precision=2)
 
-            st.dataframe(styled, use_container_width=True, height=350)
+            st.dataframe(styled, use_container_width=True, height=520, hide_index=True)
 
     # ====================================================================
-    # TAB 4: Surplus Analysis  (verbatim from app_interim.py)
+    # TAB 4: Surplus Analysis
     # ====================================================================
     with tab4:
-        st.markdown('<p class="section-header">⚖ Surplus Analysis & Scheduling Rationale</p>',
+        st.markdown('<p class="section-header">⚖ Hourly Net Energy Balance (Solar − Demand)</p>',
                     unsafe_allow_html=True)
 
-        left_col, right_col = st.columns([3, 2], gap="large")
+        left_col, right_col = st.columns([3, 1], gap="large")
 
         with left_col:
-            st.markdown("#### Hourly Net Energy Balance (Solar − Demand)")
             st.plotly_chart(build_net_energy_chart(solar_kw, demand_kw),
                             use_container_width=True, config={"displayModeBar": False},
                             key="tab4_net")
-            st.caption(
-                "**Green bars** represent hours where solar generation exceeds baseline demand — "
-                "this is the **surplus energy window** that will be exploited by the heuristic "
-                "scheduling engine in Phase 5 to power community water pumps and EV chargers."
-            )
+            st.caption("🟢 Green = solar surplus (solar > demand) · 🔴 Red = grid draw (demand > solar)")
 
         with right_col:
-            st.markdown("#### 🗺 Roadmap: Phases 5–7 (Final Submission)")
-            st.markdown("""
-            **Phase 5 — Smart Heuristic Scheduling Engine:**
-            - Sliding-window surplus maximization algorithm
-            - Priority-based appliance allocation (Water Pump → EV Charger)
-            - Dynamic load deduction to prevent double-counting
-
-            **Phase 6 — Integrated Full Dashboard:**
-            - Appliance operating window cards with time-bands
-            - Baseline comparison (conventional vs AI-optimized)
-            - Financial KPIs (₹ saved/day, grid draw reduction %)
-
-            **Phase 7 — Final Evaluation & Documentation:**
-            - End-to-end benchmark testing
-            - Complete project report with results tables
-            - Deployment-ready package
-            """)
-
             if surplus_mask.any():
-                st.markdown("---")
-                st.markdown("#### 🎯 Identified Optimal Scheduling Window")
-                st.markdown(f"""
-                Based on today's forecast, the prime surplus window is:
-
-                🟢 **{surplus_start:02d}:00 – {surplus_end:02d}:00**
-                *(Solar exceeds demand for {surplus_hrs} hours, yielding {surplus_kwh:.1f} kWh surplus)*
-
-                **Target loads for Phase 5:**
-                - 🔧 Community Water Pump (5.0 kW × 2h = 10.0 kWh)
-                - 🔌 EV Charging Fleet (11.0 kW × 3h = 33.0 kWh)
-                - 🌡 HVAC Pre-cooling (3.5 kW × 2h = 7.0 kWh)
-                """)
+                st.metric("🎯 Surplus Window", f"{surplus_start:02d}:00 – {surplus_end:02d}:00")
+            else:
+                st.metric("🎯 Surplus Window", "None")
+            st.metric("📈 Surplus Hours", f"{surplus_hrs} h")
+            st.metric("☀ Surplus Energy", f"{surplus_kwh:.1f} kWh")
+            st.metric("⚡ Grid Deficit Energy", f"{float(np.maximum(-net, 0).sum()):.1f} kWh")
 
     # ====================================================================
     # TAB 5: 🌿 Carbon & Savings  (NEW — Phase 6)
@@ -1449,16 +1406,6 @@ CREATE TABLE historical_energy (
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # ---- Run Scheduler button ----------------------------------
-            run_btn = st.button(
-                "🚀 Run Smart Scheduler",
-                type="primary",
-                use_container_width=False,
-                help="Runs the greedy surplus-maximising scheduler on the current forecast.",
-            )
-
-            # Always show schedule (auto-run), or only on button press
-            # We auto-run to have a default view
             try:
                 sched_res_t6: ScheduleResult = run_scheduler(
                     solar_kw, demand_kw, appliances=enabled_appliances
@@ -1555,16 +1502,6 @@ CREATE TABLE historical_energy (
             except Exception as exc:
                 st.error(f"❌ Scheduler error: {exc}")
                 st.exception(exc)
-
-    # ====================================================================
-    # Footer
-    # ====================================================================
-    st.markdown("""
-    <div style="text-align:center;padding:30px 0 10px;color:#4a5568;font-size:0.78rem;">
-        SolarGrid v1.0 (Full Production) · Phases 1–7 · PyTorch LSTM + XGBoost + Heuristic Scheduler<br>
-        Real-time weather via Open-Meteo · Carbon analytics · Financial optimisation
-    </div>
-    """, unsafe_allow_html=True)
 
 
 # Alias for backwards compatibility

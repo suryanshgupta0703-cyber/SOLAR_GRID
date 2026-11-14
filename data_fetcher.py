@@ -8,7 +8,7 @@ Replaces synthetic weather data with live readings from the Open-Meteo API
 
 Public API
 ----------
-  fetch_live_forecast(lat, lon, city_name)  → pd.DataFrame | None
+  fetch_live_forecast(lat, lon, city_name, target_date)  → pd.DataFrame | None
   fetch_historical_archive(lat, lon, start_date, end_date) → pd.DataFrame | None
   CITY_PRESETS  — dict of preset city coordinates
 
@@ -22,7 +22,7 @@ import json
 import math
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
@@ -166,9 +166,11 @@ def fetch_live_forecast(
     lat: float = 32.7266,
     lon: float = 74.8570,
     city_name: str = "Jammu",
+    target_date: date | None = None,
 ) -> pd.DataFrame | None:
     """
-    Fetch the next 24 hours of weather data from Open-Meteo Forecast API.
+    Fetch one full local calendar day (00:00–23:00) of hourly weather from the
+    Open-Meteo Forecast API.
 
     Returns a DataFrame whose columns match the inference feature schema
     expected by ``models/forecast.py``:
@@ -179,25 +181,27 @@ def fetch_live_forecast(
         lat:       Latitude of the location (decimal degrees).
         lon:       Longitude of the location (decimal degrees).
         city_name: Human-readable label used only for log messages.
+        target_date: Calendar day to fetch (defaults to today). Open-Meteo
+                     serves roughly the past 3 months up to 16 days ahead.
 
     Returns:
-        24-row DataFrame with the feature columns described above,
-        or **None** if the API call fails (network down, timeout, etc.).
+        24-row DataFrame (row index == hour of day) with the feature columns
+        described above, or **None** if the API call fails.
 
     Notes:
         - ``global_tilted_irradiance`` → ``solar_irradiance_wm2``
         - ``cloud_cover`` / 100       → ``cloud_cover_pct``  (kept as %)
-        - Rows are sliced to exactly the next 24 hours from the current
-          local hour (using the timezone returned by Open-Meteo).
+        - Timestamps are in the city's local timezone (``timezone=auto``).
     """
+    day = (target_date or date.today()).isoformat()
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
         f"&hourly=temperature_2m,cloud_cover,direct_normal_irradiance,global_tilted_irradiance"
-        f"&forecast_days=2&timezone=auto"
+        f"&start_date={day}&end_date={day}&timezone=auto"
     )
 
-    print(f"[data_fetcher] Fetching live forecast for {city_name} (lat={lat}, lon={lon})…")
+    print(f"[data_fetcher] Fetching live forecast for {city_name} on {day} (lat={lat}, lon={lon})…")
     data = _get_json(url)
     if data is None:
         print(f"[data_fetcher] ⚠ Could not retrieve live forecast for {city_name}. "
@@ -219,20 +223,12 @@ def fetch_live_forecast(
             "solar_irradiance_wm2":np.round(np.clip(gti, 0, None), 2),
         })
 
-        # Drop any rows with NaN (Open-Meteo sometimes returns null for future hours)
-        df.dropna(subset=["temperature_c", "solar_irradiance_wm2"], inplace=True)
+        # Interpolate (not drop) occasional nulls so row index stays aligned to hour of day
+        value_cols = ["temperature_c", "cloud_cover_pct", "solar_irradiance_wm2"]
+        df[value_cols] = df[value_cols].interpolate(limit_direction="both")
 
-        # Slice to next 24 hours from current local hour
-        # Open-Meteo returns timestamps in the location's timezone; we match against
-        # local wall-clock time by using the first "now-or-later" index.
-        now_naive = datetime.now()
-        # Truncate to current hour
-        now_hour  = now_naive.replace(minute=0, second=0, microsecond=0)
-        future_mask = df["_time"] >= pd.Timestamp(now_hour)
-        df = df[future_mask].head(24).copy()
-
-        if df.empty:
-            print(f"[data_fetcher] ⚠ No future hours found in API response for {city_name}.")
+        if len(df) != 24 or df[value_cols].isna().any().any():
+            print(f"[data_fetcher] ⚠ Incomplete day ({len(df)} hours) in API response for {city_name}.")
             return None
 
         # Add cyclical encodings

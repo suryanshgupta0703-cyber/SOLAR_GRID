@@ -16,6 +16,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 import sys
 import json
 import warnings
+from dataclasses import replace
 from pathlib import Path
 from datetime import datetime, date, timedelta
 
@@ -265,6 +266,51 @@ def load_model_metrics() -> dict:
         except Exception:
             return {}
     return {}
+
+
+# ===========================================================================
+# Appliance configuration — widget specs and shared state
+# ===========================================================================
+# One entry per DEFAULT_APPLIANCES item; priority, interruptibility and the
+# time window come from the dataclass so the UI and the model stay in sync.
+_APPLIANCE_UI = [
+    {"key": "ev",   "icon": "🔌", "unit_label": "EV Charger", "kw_min": 3.0, "kw_max": 22.0, "count_max": 5, "dur_max": 6},
+    {"key": "pump", "icon": "💧", "unit_label": "Water Pump", "kw_min": 1.0, "kw_max": 15.0, "count_max": 4, "dur_max": 4},
+    {"key": "hvac", "icon": "❄️", "unit_label": "HVAC Zone",  "kw_min": 1.0, "kw_max": 10.0, "count_max": 3, "dur_max": 4},
+]
+
+
+def _appliance_settings() -> dict:
+    """Read appliance widget values, falling back to defaults on first load.
+
+    The Carbon & Savings tab runs before the Scheduler tab creates its
+    widgets, so values must come from session_state rather than widget returns.
+    """
+    settings = {}
+    for spec, appl in zip(_APPLIANCE_UI, DEFAULT_APPLIANCES):
+        k = spec["key"]
+        settings[k] = {
+            "enabled": bool(st.session_state.get(f"{k}_enabled", True)),
+            "count": int(st.session_state.get(f"{k}_count", 1)),
+            "kw": float(st.session_state.get(f"{k}_kw", appl.power_kw)),
+            "dur": int(st.session_state.get(f"{k}_dur", appl.duration_hours)),
+        }
+    settings["peak_cap_kw"] = float(st.session_state.get("peak_cap_kw", 35.0))
+    return settings
+
+
+def _configured_appliances(settings: dict) -> list:
+    """Expand each enabled category into one Appliance per unit (Option B)."""
+    appliances = []
+    for spec, base in zip(_APPLIANCE_UI, DEFAULT_APPLIANCES):
+        cfg = settings[spec["key"]]
+        if not cfg["enabled"]:
+            continue
+        for i in range(1, cfg["count"] + 1):
+            name = base.name if cfg["count"] == 1 else f"{spec['unit_label']} #{i}"
+            appliances.append(replace(base, name=name, power_kw=cfg["kw"],
+                                      duration_hours=cfg["dur"]))
+    return appliances
 
 
 # ===========================================================================
@@ -592,7 +638,8 @@ def build_power_balance_chart(
     hour_lbls = [f"{h:02d}:00" for h in range(24)]
 
     # Colour palette for appliances
-    appl_colours = ["#f7c948", "#06d6a0", "#118ab2", "#ff9f43", "#a29bfe", "#fd79a8"]
+    appl_colours = ["#f7c948", "#06d6a0", "#118ab2", "#ff9f43", "#a29bfe", "#fd79a8",
+                    "#00cec9", "#e17055", "#6c5ce7", "#55efc4", "#fab1a0", "#74b9ff"]
 
     fig = go.Figure()
 
@@ -707,6 +754,7 @@ def render_sidebar() -> tuple:
             city_lat = coords["lat"]
             city_lon = coords["lon"]
             st.caption(f"📍 lat={city_lat}, lon={city_lon}")
+            st.caption("📊 Dataset and 🧠 model tabs are shown in Historical Benchmark mode.")
 
         st.divider()
 
@@ -778,7 +826,7 @@ def organized_main():
     """, unsafe_allow_html=True)
 
     # ---- Load data & forecast ------------------------------------------
-    hist_df = load_historical()
+    hist_df = load_historical() if not is_live else pd.DataFrame()
 
     if is_live:
         with st.spinner(f"🌐 Fetching live weather for {selected_city} from Open-Meteo…"):
@@ -829,220 +877,235 @@ def organized_main():
     else:
         surplus_start, surplus_end = 10, 14
 
-    metrics = load_model_metrics()
+    metrics = load_model_metrics() if not is_live else {}
+
+    # Shared appliance configuration — used by both Carbon & Savings and
+    # Smart Scheduler so the two tabs always agree.
+    appl_settings = _appliance_settings()
+    configured_appliances = _configured_appliances(appl_settings)
+    peak_cap_kw = appl_settings["peak_cap_kw"]
 
     # ====================================================================
-    # TAB LAYOUT — 6 tabs total
+    # TAB LAYOUT — 4 dynamic tabs in live mode, 6 in benchmark mode
     # ====================================================================
-    # Display order: forecast-driven tabs first, static dataset/model tabs last
-    tab3, tab4, tab5, tab6, tab1, tab2 = st.tabs([
-        "📈 24-Hour Forecast",
-        "⚖ Surplus Analysis",
-        "🌿 Carbon & Savings",
-        "⚙️ Smart Scheduler",
-        "📊 Data Exploration",
-        "🧠 Model Architecture & Evaluation",
-    ])
+    if is_live:
+        tab3, tab4, tab5, tab6 = st.tabs([
+            "📈 24-Hour Forecast",
+            "⚖ Surplus Analysis",
+            "🌿 Carbon & Savings",
+            "⚙️ Smart Scheduler",
+        ])
+        tab1 = tab2 = None
+    else:
+        tab3, tab4, tab5, tab6, tab1, tab2 = st.tabs([
+            "📈 24-Hour Forecast",
+            "⚖ Surplus Analysis",
+            "🌿 Carbon & Savings",
+            "⚙️ Smart Scheduler",
+            "📊 Data Exploration",
+            "🧠 Model Architecture & Evaluation",
+        ])
 
-    # ====================================================================
-    # TAB 1: Data Exploration  (Phase 1 & 2 — verbatim from app_interim.py)
-    # ====================================================================
-    with tab1:
-        st.markdown('<p class="section-header">📊 Historical Data Exploration (Synthetic Dataset)</p>',
-                    unsafe_allow_html=True)
+    if not is_live:
+        # ====================================================================
+        # TAB 1: Data Exploration  (Phase 1 & 2 — verbatim from app_interim.py)
+        # ====================================================================
+        with tab1:
+            st.markdown('<p class="section-header">📊 Historical Data Exploration (Synthetic Dataset)</p>',
+                        unsafe_allow_html=True)
 
-        if hist_df.empty:
-            st.info("No data available. Run `python data_gen.py` to generate the dataset.")
-        else:
-            k1, k2, k3, k4 = st.columns(4)
-            with k1:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-label">📦 Total Records</div>
-                    <div class="kpi-value blue">{len(hist_df)}</div>
-                    <div class="kpi-unit">hourly readings</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with k2:
-                n_days = (hist_df["timestamp"].max() - hist_df["timestamp"].min()).days + 1
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-label">📅 Coverage</div>
-                    <div class="kpi-value">{n_days}</div>
-                    <div class="kpi-unit">days of history</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with k3:
-                pk_sol = hist_df["historical_solar_gen_kw"].max()
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-label">☀ Peak Solar</div>
-                    <div class="kpi-value">{pk_sol:.1f}</div>
-                    <div class="kpi-unit">kW recorded</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with k4:
-                pk_dem = hist_df["historical_baseline_demand_kw"].max()
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-label">⚡ Peak Demand</div>
-                    <div class="kpi-value green">{pk_dem:.1f}</div>
-                    <div class="kpi-unit">kW recorded</div>
-                </div>
-                """, unsafe_allow_html=True)
+            if hist_df.empty:
+                st.info("No data available. Run `python data_gen.py` to generate the dataset.")
+            else:
+                k1, k2, k3, k4 = st.columns(4)
+                with k1:
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-label">📦 Total Records</div>
+                        <div class="kpi-value blue">{len(hist_df)}</div>
+                        <div class="kpi-unit">hourly readings</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with k2:
+                    n_days = (hist_df["timestamp"].max() - hist_df["timestamp"].min()).days + 1
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-label">📅 Coverage</div>
+                        <div class="kpi-value">{n_days}</div>
+                        <div class="kpi-unit">days of history</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with k3:
+                    pk_sol = hist_df["historical_solar_gen_kw"].max()
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-label">☀ Peak Solar</div>
+                        <div class="kpi-value">{pk_sol:.1f}</div>
+                        <div class="kpi-unit">kW recorded</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with k4:
+                    pk_dem = hist_df["historical_baseline_demand_kw"].max()
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-label">⚡ Peak Demand</div>
+                        <div class="kpi-value green">{pk_dem:.1f}</div>
+                        <div class="kpi-unit">kW recorded</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                wc1, wc2 = st.columns(2, gap="large")
+                with wc1:
+                    st.markdown('<p class="section-header">🌦 Weather Parameter Time-Series (30 Days)</p>',
+                                unsafe_allow_html=True)
+                    st.plotly_chart(build_weather_correlation_chart(hist_df),
+                                    use_container_width=True, config={"displayModeBar": False})
+                with wc2:
+                    st.markdown('<p class="section-header">☀ Historical Solar Generation vs Community Demand</p>',
+                                unsafe_allow_html=True)
+                    st.plotly_chart(build_historical_generation_chart(hist_df),
+                                    use_container_width=True, config={"displayModeBar": False})
+
+                with st.expander("🗄️ SQLite Database Schema & Sample Data"):
+                    st.code("""
+    CREATE TABLE historical_energy (
+        id                            INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp                     TEXT    NOT NULL UNIQUE,
+        temperature_c                 REAL    NOT NULL,   -- ambient temp (°C)
+        cloud_cover_pct               REAL    NOT NULL,   -- 0–100 %
+        solar_irradiance_wm2          REAL    NOT NULL,   -- W/m²
+        historical_solar_gen_kw       REAL    NOT NULL,   -- kW produced
+        historical_baseline_demand_kw REAL    NOT NULL    -- kW consumed
+    );
+                    """, language="sql")
+                    st.markdown("**Sample Records (First 10 Rows):**")
+                    st.dataframe(
+                        hist_df.head(10)[["timestamp", "temperature_c", "cloud_cover_pct",
+                                         "solar_irradiance_wm2", "historical_solar_gen_kw",
+                                         "historical_baseline_demand_kw"]],
+                        use_container_width=True,
+                    )
+
+        # ====================================================================
+        # TAB 2: Model Architecture & Evaluation  (verbatim from app_interim.py)
+        # ====================================================================
+        with tab2:
+            st.markdown('<p class="section-header">🧠 ML Model Architecture & Evaluation</p>',
+                        unsafe_allow_html=True)
+
+            arch_col1, arch_col2 = st.columns(2, gap="large")
+            with arch_col1:
+                st.markdown("#### 🔮 PyTorch LSTM — Solar Generation Predictor")
+                st.markdown("""
+                | Parameter | Value |
+                |-----------|-------|
+                | **Architecture** | 2-Layer Stacked LSTM → Dropout → FC(1) |
+                | **Input Size** | 8 features per timestep |
+                | **Hidden Units** | 64 per layer |
+                | **Sequence Length** | 24-hour lookback window |
+                | **Dropout** | 20% between LSTM layers |
+                | **Optimizer** | Adam (lr = 1e-3, grad_clip = 1.0) |
+                | **Loss** | Mean Squared Error (MSE) |
+                | **Epochs** | 30 (with early stopping on val loss) |
+                """)
+                st.caption(
+                    "The LSTM captures **temporal autocorrelation** — a sunny morning "
+                    "reliably predicts sustained solar generation through the afternoon. "
+                    "This sequential dependency is critical for improving forecast horizon accuracy."
+                )
+
+            with arch_col2:
+                st.markdown("#### 🌲 XGBoost — Dual-Target Regressor")
+                st.markdown("""
+                | Parameter | Value |
+                |-----------|-------|
+                | **Target 1** | Solar Generation (kW) |
+                | **Target 2** | Baseline Electricity Demand (kW) |
+                | **n_estimators** | 300 |
+                | **max_depth** | 6 |
+                | **learning_rate** | 0.05 |
+                | **subsample** | 0.8 |
+                | **tree_method** | hist (CPU histogram) |
+                | **early_stopping** | 20 rounds patience |
+                """)
+                st.caption(
+                    "XGBoost models **non-linear meteorological feature interactions** — "
+                    "e.g., the combined effect of cloud cover × solar irradiance × temperature. "
+                    "It excels at point-in-time predictions without needing sequential context."
+                )
 
             st.markdown("<br>", unsafe_allow_html=True)
-            wc1, wc2 = st.columns(2, gap="large")
-            with wc1:
-                st.markdown('<p class="section-header">🌦 Weather Parameter Time-Series (30 Days)</p>',
+            ens_col, feat_col = st.columns(2, gap="large")
+            with ens_col:
+                st.markdown('<p class="section-header">🔗 Hybrid Ensemble Strategy</p>',
                             unsafe_allow_html=True)
-                st.plotly_chart(build_weather_correlation_chart(hist_df),
-                                use_container_width=True, config={"displayModeBar": False})
-            with wc2:
-                st.markdown('<p class="section-header">☀ Historical Solar Generation vs Community Demand</p>',
-                            unsafe_allow_html=True)
-                st.plotly_chart(build_historical_generation_chart(hist_df),
-                                use_container_width=True, config={"displayModeBar": False})
+                st.markdown("""
+                **Solar forecast uses a weighted ensemble blend:**
+                ```
+                Solar_forecast(h) = 0.55 × LSTM_pred(h) + 0.45 × XGB_solar_pred(h)
+                ```
+                **Demand forecast uses XGBoost only** (demand patterns are more feature-driven than temporal):
+                ```
+                Demand_forecast(h) = XGB_demand_pred(h)
+                ```
+                """)
 
-            with st.expander("🗄️ SQLite Database Schema & Sample Data"):
-                st.code("""
-CREATE TABLE historical_energy (
-    id                            INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp                     TEXT    NOT NULL UNIQUE,
-    temperature_c                 REAL    NOT NULL,   -- ambient temp (°C)
-    cloud_cover_pct               REAL    NOT NULL,   -- 0–100 %
-    solar_irradiance_wm2          REAL    NOT NULL,   -- W/m²
-    historical_solar_gen_kw       REAL    NOT NULL,   -- kW produced
-    historical_baseline_demand_kw REAL    NOT NULL    -- kW consumed
-);
-                """, language="sql")
-                st.markdown("**Sample Records (First 10 Rows):**")
-                st.dataframe(
-                    hist_df.head(10)[["timestamp", "temperature_c", "cloud_cover_pct",
-                                     "solar_irradiance_wm2", "historical_solar_gen_kw",
-                                     "historical_baseline_demand_kw"]],
-                    use_container_width=True,
-                )
+            with feat_col:
+                st.markdown('<p class="section-header">⚙️ Feature Engineering</p>', unsafe_allow_html=True)
+                feat_cols_path = PROJECT_ROOT / "models" / "saved" / "feature_cols.json"
+                if feat_cols_path.exists():
+                    with open(feat_cols_path) as f:
+                        feat_cols = json.load(f)
+                    feat_desc = {
+                        "temperature_c": "Ambient temperature (°C) — affects panel efficiency (inverse relationship)",
+                        "cloud_cover_pct": "Cloud coverage (0–100%) — primary attenuator of solar irradiance",
+                        "solar_irradiance_wm2": "Solar irradiance at panel surface (W/m²) — direct energy driver",
+                        "hour_sin": "sin(2π·hour/24) — circular encoding of time of day",
+                        "hour_cos": "cos(2π·hour/24) — circular encoding of time of day",
+                        "dow_sin": "sin(2π·day_of_week/7) — circular day-of-week encoding",
+                        "dow_cos": "cos(2π·day_of_week/7) — circular day-of-week encoding",
+                        "day_of_year": "Day of year (1–365) — captures seasonal variation",
+                    }
+                    feat_df = pd.DataFrame([
+                        {"Feature": col, "Description": feat_desc.get(col, "")}
+                        for col in feat_cols
+                    ])
+                    st.dataframe(feat_df, use_container_width=True, hide_index=True)
+                else:
+                    st.caption("Feature columns not available — run `python models/train_models.py`.")
 
-    # ====================================================================
-    # TAB 2: Model Architecture & Evaluation  (verbatim from app_interim.py)
-    # ====================================================================
-    with tab2:
-        st.markdown('<p class="section-header">🧠 ML Model Architecture & Evaluation</p>',
-                    unsafe_allow_html=True)
-
-        arch_col1, arch_col2 = st.columns(2, gap="large")
-        with arch_col1:
-            st.markdown("#### 🔮 PyTorch LSTM — Solar Generation Predictor")
-            st.markdown("""
-            | Parameter | Value |
-            |-----------|-------|
-            | **Architecture** | 2-Layer Stacked LSTM → Dropout → FC(1) |
-            | **Input Size** | 8 features per timestep |
-            | **Hidden Units** | 64 per layer |
-            | **Sequence Length** | 24-hour lookback window |
-            | **Dropout** | 20% between LSTM layers |
-            | **Optimizer** | Adam (lr = 1e-3, grad_clip = 1.0) |
-            | **Loss** | Mean Squared Error (MSE) |
-            | **Epochs** | 30 (with early stopping on val loss) |
-            """)
-            st.caption(
-                "The LSTM captures **temporal autocorrelation** — a sunny morning "
-                "reliably predicts sustained solar generation through the afternoon. "
-                "This sequential dependency is critical for improving forecast horizon accuracy."
-            )
-
-        with arch_col2:
-            st.markdown("#### 🌲 XGBoost — Dual-Target Regressor")
-            st.markdown("""
-            | Parameter | Value |
-            |-----------|-------|
-            | **Target 1** | Solar Generation (kW) |
-            | **Target 2** | Baseline Electricity Demand (kW) |
-            | **n_estimators** | 300 |
-            | **max_depth** | 6 |
-            | **learning_rate** | 0.05 |
-            | **subsample** | 0.8 |
-            | **tree_method** | hist (CPU histogram) |
-            | **early_stopping** | 20 rounds patience |
-            """)
-            st.caption(
-                "XGBoost models **non-linear meteorological feature interactions** — "
-                "e.g., the combined effect of cloud cover × solar irradiance × temperature. "
-                "It excels at point-in-time predictions without needing sequential context."
-            )
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        ens_col, feat_col = st.columns(2, gap="large")
-        with ens_col:
-            st.markdown('<p class="section-header">🔗 Hybrid Ensemble Strategy</p>',
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<p class="section-header">🎯 Holdout Test-Set Evaluation Metrics</p>',
                         unsafe_allow_html=True)
-            st.markdown("""
-            **Solar forecast uses a weighted ensemble blend:**
-            ```
-            Solar_forecast(h) = 0.55 × LSTM_pred(h) + 0.45 × XGB_solar_pred(h)
-            ```
-            **Demand forecast uses XGBoost only** (demand patterns are more feature-driven than temporal):
-            ```
-            Demand_forecast(h) = XGB_demand_pred(h)
-            ```
-            """)
-
-        with feat_col:
-            st.markdown('<p class="section-header">⚙️ Feature Engineering</p>', unsafe_allow_html=True)
-            feat_cols_path = PROJECT_ROOT / "models" / "saved" / "feature_cols.json"
-            if feat_cols_path.exists():
-                with open(feat_cols_path) as f:
-                    feat_cols = json.load(f)
-                feat_desc = {
-                    "temperature_c": "Ambient temperature (°C) — affects panel efficiency (inverse relationship)",
-                    "cloud_cover_pct": "Cloud coverage (0–100%) — primary attenuator of solar irradiance",
-                    "solar_irradiance_wm2": "Solar irradiance at panel surface (W/m²) — direct energy driver",
-                    "hour_sin": "sin(2π·hour/24) — circular encoding of time of day",
-                    "hour_cos": "cos(2π·hour/24) — circular encoding of time of day",
-                    "dow_sin": "sin(2π·day_of_week/7) — circular day-of-week encoding",
-                    "dow_cos": "cos(2π·day_of_week/7) — circular day-of-week encoding",
-                    "day_of_year": "Day of year (1–365) — captures seasonal variation",
-                }
-                feat_df = pd.DataFrame([
-                    {"Feature": col, "Description": feat_desc.get(col, "")}
-                    for col in feat_cols
-                ])
-                st.dataframe(feat_df, use_container_width=True, hide_index=True)
-            else:
-                st.caption("Feature columns not available — run `python models/train_models.py`.")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<p class="section-header">🎯 Holdout Test-Set Evaluation Metrics</p>',
-                    unsafe_allow_html=True)
-        if metrics:
-            sol_m = metrics.get("solar", {})
-            dem_m = metrics.get("demand", {})
-            ev1, ev2, ev3 = st.columns(3)
-            with ev1:
-                st.markdown("##### Metric Definitions")
+            if metrics:
+                sol_m = metrics.get("solar", {})
+                dem_m = metrics.get("demand", {})
+                ev1, ev2, ev3 = st.columns(3)
+                with ev1:
+                    st.markdown("##### Metric Definitions")
+                    st.caption(
+                        "**MAE** (Mean Absolute Error): Average ±kW deviation from true values.\n\n"
+                        "**RMSE** (Root Mean Square Error): Penalises large outlier errors.\n\n"
+                        "**MAPE** (Mean Absolute % Error): % error relative to actual values "
+                        "(computed only for values > 1.0 kW to avoid night-hour zero-division)."
+                    )
+                with ev2:
+                    st.markdown("##### ☀ Solar Generation Model")
+                    st.metric("MAE",  f"{sol_m.get('mae',  'N/A')} kW")
+                    st.metric("RMSE", f"{sol_m.get('rmse', 'N/A')} kW")
+                    st.metric("MAPE", f"{sol_m.get('mape', 'N/A')} %")
+                with ev3:
+                    st.markdown("##### ⚡ Electricity Demand Model")
+                    st.metric("MAE",  f"{dem_m.get('mae',  'N/A')} kW")
+                    st.metric("RMSE", f"{dem_m.get('rmse', 'N/A')} kW")
+                    st.metric("MAPE", f"{dem_m.get('mape', 'N/A')} %")
                 st.caption(
-                    "**MAE** (Mean Absolute Error): Average ±kW deviation from true values.\n\n"
-                    "**RMSE** (Root Mean Square Error): Penalises large outlier errors.\n\n"
-                    "**MAPE** (Mean Absolute % Error): % error relative to actual values "
-                    "(computed only for values > 1.0 kW to avoid night-hour zero-division)."
+                    f"Evaluated on **{metrics.get('test_samples', 'N/A')} holdout test samples** "
+                    f"({metrics.get('split_ratio', 'N/A')} temporal train/test split)."
                 )
-            with ev2:
-                st.markdown("##### ☀ Solar Generation Model")
-                st.metric("MAE",  f"{sol_m.get('mae',  'N/A')} kW")
-                st.metric("RMSE", f"{sol_m.get('rmse', 'N/A')} kW")
-                st.metric("MAPE", f"{sol_m.get('mape', 'N/A')} %")
-            with ev3:
-                st.markdown("##### ⚡ Electricity Demand Model")
-                st.metric("MAE",  f"{dem_m.get('mae',  'N/A')} kW")
-                st.metric("RMSE", f"{dem_m.get('rmse', 'N/A')} kW")
-                st.metric("MAPE", f"{dem_m.get('mape', 'N/A')} %")
-            st.caption(
-                f"Evaluated on **{metrics.get('test_samples', 'N/A')} holdout test samples** "
-                f"({metrics.get('split_ratio', 'N/A')} temporal train/test split)."
-            )
-        else:
-            st.info("Run `python models/train_models.py` to generate evaluation metrics.")
+            else:
+                st.info("Run `python models/train_models.py` to generate evaluation metrics.")
 
     # ====================================================================
     # TAB 3: 24-Hour Forecast  (verbatim from app_interim.py + live banner)
@@ -1160,10 +1223,16 @@ CREATE TABLE historical_energy (
                 "Carbon & Savings tab requires the scheduler module."
             )
         else:
-            # Run scheduler to get savings data
+            # Run scheduler with the shared appliance configuration
             try:
-                sched_result: ScheduleResult = run_scheduler(solar_kw, demand_kw)
-                tod_data  = compute_tod_savings(sched_result, solar_kw, demand_kw)
+                if not configured_appliances:
+                    st.info("No appliances enabled — turn them on in the Smart Scheduler tab to see savings.")
+                sched_result: ScheduleResult = run_scheduler(
+                    solar_kw, demand_kw, appliances=configured_appliances,
+                    peak_cap_kw=peak_cap_kw,
+                )
+                tod_data  = compute_tod_savings(sched_result, solar_kw, demand_kw,
+                                                appliances=configured_appliances)
                 carbon_data = compute_carbon_savings(sched_result.surplus_used_kwh)
 
                 # Determine weather condition from cloud cover proxy
@@ -1325,38 +1394,61 @@ CREATE TABLE historical_energy (
             # ---- Appliance Configuration Panel -------------------------
             st.markdown('<p class="section-header">🔧 Appliance Configuration</p>',
                         unsafe_allow_html=True)
-            st.caption("Disabled appliances are excluded from the optimisation.")
+            st.caption("Disabled appliances are excluded from the optimisation. "
+                       "Each unit is scheduled separately, so the scheduler can spread them across surplus hours.")
 
-            enabled_appliances = []
-            appl_cols = st.columns(len(DEFAULT_APPLIANCES))
-            for col, appl in zip(appl_cols, DEFAULT_APPLIANCES):
-                with col:
+            appl_cols = st.columns(len(_APPLIANCE_UI))
+            for col, spec, appl in zip(appl_cols, _APPLIANCE_UI, DEFAULT_APPLIANCES):
+                k = spec["key"]
+                with col, st.container(border=True):
                     is_enabled = st.toggle(
-                        label=appl.name,
+                        label=f"{spec['icon']} {appl.name}",
                         value=True,
-                        key=f"appl_toggle_{appl.name}",
+                        key=f"{k}_enabled",
                     )
+                    count = st.number_input(
+                        "Number of units", min_value=1, max_value=spec["count_max"],
+                        value=1, step=1, key=f"{k}_count", disabled=not is_enabled,
+                    )
+                    kw = st.slider(
+                        "Power per unit (kW)", min_value=spec["kw_min"],
+                        max_value=spec["kw_max"], value=float(appl.power_kw),
+                        step=0.5, key=f"{k}_kw", disabled=not is_enabled,
+                    )
+                    dur = st.slider(
+                        "Run duration (hours)", min_value=1, max_value=spec["dur_max"],
+                        value=int(appl.duration_hours), step=1, key=f"{k}_dur",
+                        disabled=not is_enabled,
+                    )
+                    mode = "splittable" if appl.interruptible else "one block"
                     st.caption(
-                        f"⚡ {appl.power_kw} kW · "
-                        f"⏱ {appl.duration_hours}h · "
-                        f"🏁 by {appl.deadline_hour:02d}:00"
+                        f"{count} × {kw:.1f} kW = **{count * kw:.1f} kW** · "
+                        f"{dur} h · by {appl.deadline_hour:02d}:00 · {mode}"
                     )
-                    if is_enabled:
-                        enabled_appliances.append(appl)
+
+            st.slider(
+                "🛡️ Distribution Transformer Limit (kW)",
+                min_value=20.0, max_value=60.0, value=35.0, step=1.0,
+                key="peak_cap_kw",
+                help="Hard cap on total hourly load (base demand + scheduled appliances).",
+            )
 
             st.markdown("<br>", unsafe_allow_html=True)
 
             try:
+                if not configured_appliances:
+                    st.info("No appliances enabled — the charts below show base demand only.")
                 sched_res_t6: ScheduleResult = run_scheduler(
-                    solar_kw, demand_kw, appliances=enabled_appliances
+                    solar_kw, demand_kw, appliances=configured_appliances,
+                    peak_cap_kw=peak_cap_kw,
                 )
 
                 schedule   = sched_res_t6.schedule
                 total_load = sched_res_t6.total_load_per_hour
-                appl_pwr   = {a.name: a.power_kw for a in DEFAULT_APPLIANCES}
+                appl_pwr   = {a.name: a.power_kw for a in configured_appliances}
 
                 # ---- Transformer Safety indicator ----------------------
-                PEAK_CAP_KW = 35.0
+                PEAK_CAP_KW = peak_cap_kw
                 max_load    = float(total_load.max())
                 is_safe     = max_load <= PEAK_CAP_KW
                 if is_safe:
@@ -1368,11 +1460,13 @@ CREATE TABLE historical_energy (
                     )
                 else:
                     over_hours = [h for h in range(24) if total_load[h] > PEAK_CAP_KW]
+                    base_note = (" Base demand alone exceeds this limit."
+                                 if float(demand_kw.max()) > PEAK_CAP_KW else "")
                     st.markdown(
                         f'<div class="safety-warn">⚠️ <b>Transformer Overload Warning</b> — '
                         f'Peak total load: <b>{max_load:.1f} kW</b> exceeds '
                         f'{PEAK_CAP_KW:.0f} kW limit at hours: '
-                        f'{[f"{h:02d}:00" for h in over_hours]}</div>',
+                        f'{[f"{h:02d}:00" for h in over_hours]}.{base_note}</div>',
                         unsafe_allow_html=True,
                     )
 
@@ -1392,7 +1486,8 @@ CREATE TABLE historical_energy (
                         st.metric("⚠ Unscheduled", f"{len(unscheduled)} appliance(s)")
                         st.caption(f"Could not schedule: {', '.join(unscheduled)}")
                     else:
-                        st.metric("✅ All Scheduled", f"{len(schedule)} appliance(s)")
+                        n_scheduled = sum(1 for hrs in schedule.values() if hrs)
+                        st.metric("✅ All Scheduled", f"{n_scheduled} appliance(s)")
 
                 st.markdown("<br>", unsafe_allow_html=True)
 

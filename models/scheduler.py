@@ -346,6 +346,7 @@ def compute_tod_savings(
     schedule_result: ScheduleResult,
     solar_kw: np.ndarray,
     demand_kw: np.ndarray,
+    appliances: Optional[List[Appliance]] = None,
 ) -> dict:
     """
     Compute Time-of-Day (ToD) tariff cost savings versus unmanaged operation.
@@ -372,6 +373,10 @@ def compute_tod_savings(
         Hourly solar generation used to run the scheduler, shape (24,).
     demand_kw : np.ndarray
         Hourly baseline demand used to run the scheduler, shape (24,).
+    appliances : list[Appliance] or None
+        The same appliance list passed to :func:`run_scheduler`, so custom
+        power ratings and per-unit instances are costed correctly.
+        Defaults to :data:`DEFAULT_APPLIANCES`.
 
     Returns
     -------
@@ -381,11 +386,9 @@ def compute_tod_savings(
         - ``savings_rs``        : float — absolute saving (₹)
         - ``savings_pct``       : float — percentage saving vs baseline
     """
-    # Reconstruct per-appliance energy from schedule
-    # We need the full appliance list; reconstruct power from schedule
-    # (we only have schedule_result here, so we infer from names)
-    # Build a quick lookup: name → power_kw from DEFAULT_APPLIANCES
-    power_lookup = {a.name: a.power_kw for a in DEFAULT_APPLIANCES}
+    if appliances is None:
+        appliances = DEFAULT_APPLIANCES
+    power_lookup = {a.name: a.power_kw for a in appliances}
 
     # Baseline cost: all scheduled loads run at peak tariff (₹8.50)
     PEAK_TARIFF = 8.50

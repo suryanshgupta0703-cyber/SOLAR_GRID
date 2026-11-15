@@ -68,3 +68,83 @@ def test_tod_savings_positive():
     savings = compute_tod_savings(result, solar, demand)
     assert savings['baseline_cost_rs'] > 0
     assert savings['savings_rs'] >= 0
+
+
+# ---------------------------------------------------------------------------
+# Test 6: Custom power rating scales the scheduled energy
+# ---------------------------------------------------------------------------
+def test_custom_power_scales_energy():
+    from dataclasses import replace
+    from models.scheduler import run_scheduler, Appliance
+    solar = np.array([0]*6 + [5,10,15,20,22,24,22,20,16,12,8,4] + [0]*6, dtype=float)
+    demand = np.full(24, 10.0)
+    load = Appliance("Test Load", power_kw=4.0, duration_hours=2, priority=1,
+                     interruptible=True, deadline_hour=18, earliest_start=6)
+    r1 = run_scheduler(solar, demand, [load])
+    r2 = run_scheduler(solar, demand, [replace(load, power_kw=8.0)])
+    e1 = r1.surplus_used_kwh + r1.grid_fallback_kwh
+    e2 = r2.surplus_used_kwh + r2.grid_fallback_kwh
+    assert e1 == pytest.approx(8.0)
+    assert e2 == pytest.approx(2 * e1)
+
+
+# ---------------------------------------------------------------------------
+# Test 7: ToD savings honour renamed per-unit instances
+# ---------------------------------------------------------------------------
+def test_tod_savings_uses_instance_names():
+    from models.scheduler import run_scheduler, compute_tod_savings, Appliance
+    solar = np.array([0]*6 + [5,10,15,20,22,24,22,20,16,12,8,4] + [0]*6, dtype=float)
+    demand = np.full(24, 10.0)
+    units = [Appliance(f"EV Charger #{i}", power_kw=11.0, duration_hours=3,
+                       priority=1, interruptible=False, deadline_hour=17,
+                       earliest_start=6) for i in (1, 2)]
+    result = run_scheduler(solar, demand, units)
+    savings = compute_tod_savings(result, solar, demand, appliances=units)
+    assert savings['baseline_cost_rs'] == pytest.approx(2 * 33.0 * 8.50)
+    assert savings['savings_rs'] > 0
+
+
+# ---------------------------------------------------------------------------
+# Test 8: Two units interleave into separate surplus hours
+# ---------------------------------------------------------------------------
+def test_instances_interleave():
+    from models.scheduler import run_scheduler, Appliance
+    solar = np.zeros(24)
+    solar[10] = 25.0
+    solar[11] = 25.0
+    demand = np.full(24, 10.0)  # 15 kW surplus at 10:00 and 11:00
+    units = [Appliance(f"EV Charger #{i}", power_kw=11.0, duration_hours=1,
+                       priority=1, interruptible=False, deadline_hour=17,
+                       earliest_start=6) for i in (1, 2)]
+    result = run_scheduler(solar, demand, units)
+    assert result.schedule["EV Charger #1"] != result.schedule["EV Charger #2"]
+    assert result.surplus_used_kwh == pytest.approx(22.0)
+
+
+# ---------------------------------------------------------------------------
+# Test 9: Lowered transformer cap blocks oversized loads
+# ---------------------------------------------------------------------------
+def test_lower_cap_blocks_oversized_load():
+    from models.scheduler import run_scheduler, Appliance
+    solar = np.full(24, 40.0)
+    demand = np.full(24, 10.0)
+    load = Appliance("Big Load", power_kw=20.0, duration_hours=2, priority=1,
+                     interruptible=True, deadline_hour=18, earliest_start=6)
+    result = run_scheduler(solar, demand, [load], peak_cap_kw=25.0)
+    assert result.total_load_per_hour.max() <= 25.0
+    assert "Big Load" in result.unscheduled
+
+
+# ---------------------------------------------------------------------------
+# Test 10: Empty appliance list is safe end to end
+# ---------------------------------------------------------------------------
+def test_empty_appliance_list():
+    from models.scheduler import run_scheduler, compute_tod_savings
+    solar = np.full(24, 30.0)
+    demand = np.full(24, 10.0)
+    result = run_scheduler(solar, demand, [])
+    assert result.schedule == {}
+    assert result.surplus_used_kwh == 0.0
+    savings = compute_tod_savings(result, solar, demand, appliances=[])
+    assert savings['baseline_cost_rs'] == 0.0
+    assert savings['savings_pct'] == 0.0

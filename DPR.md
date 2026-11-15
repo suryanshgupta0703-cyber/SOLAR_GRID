@@ -3,30 +3,33 @@
 
 ---
 
-**Project Title:** SolarGrid — Smart Community Microgrid Optimization Engine  
-**Academic Level:** Bachelor of Engineering / Technology (CSE Final Seminar & Capstone)  
-**Institution:** Department of Computer Science & Engineering, Model Institute of Engineering and Technology (Autonomous), Jammu, India  
-**Candidate Name:** Suryansh Gupta  
-**University Roll No:** 2023a1r116  
-**Document Version:** 1.0 (Final Comprehensive Project Submission — Phases 1 through 7)  
-**Date of Submission:** November 2026  
+**Project Title:** SolarGrid — Smart Community Microgrid Optimization Engine
+**Academic Level:** Bachelor of Engineering / Technology (CSE Final Seminar & Capstone)
+**Institution:** Department of Computer Science & Engineering, Model Institute of Engineering and Technology (Autonomous), Jammu, India
+**Candidate Name:** Suryansh Gupta
+**University Roll No:** 2023a1r116
+**Document Version:** 2.0 (Phases 1–7 complete; adds interactive per-unit appliance controls, live-city dynamic tabs, and a 10-case test suite)
+**Date of Submission:** November 2026
 
 ---
 
 ### Executive Summary
 
-Under modern distributed renewable energy paradigms, rooftop photovoltaic (PV) solar installations are rapidly expanding across residential communities and institutional campuses in India. However, two fundamental engineering challenges severely degrade their return on investment (ROI) and destabilize local distribution transformers:
-1. **Photovoltaic Generation Intermittency:** Solar energy is strictly diurnal and highly sensitive to ambient temperature, cloud transmittance, and seasonal declination, peaking during midday (10:00 AM – 3:00 PM).
-2. **Community Demand Mismatch ("The Duck Curve"):** Residential power demand exhibits a pronounced dual-peak behavior — a morning spike (7:00 AM – 9:30 AM) and an intense evening peak (6:30 PM – 10:30 PM) — leaving the midday solar peak unconsumed.
+Under modern distributed renewable-energy paradigms, rooftop photovoltaic (PV) installations are expanding rapidly across residential communities and institutional campuses in India. Two engineering challenges degrade their return on investment (ROI) and destabilize local distribution transformers:
 
-Without intelligent demand-side management (DSM), the unconsumed solar surplus is either curtailed or fed back into the utility grid at unattractive feed-in tariffs (typically ₹2.50/kWh), while heavy appliances (EV charging fleets, agricultural/borewell water pumps, and HVAC pre-cooling units) draw energy during expensive peak grid tariff periods (up to ₹8.50/kWh).
+1. **Photovoltaic Generation Intermittency:** Solar energy is strictly diurnal and highly sensitive to ambient temperature, cloud transmittance and seasonal declination, peaking during midday (10:00 AM – 3:00 PM).
+2. **Community Demand Mismatch ("The Duck Curve"):** Residential demand exhibits a pronounced dual-peak behaviour — a morning spike (7:00–9:30 AM) and an intense evening peak (6:30–10:30 PM) — leaving the midday solar peak unconsumed.
 
-**SolarGrid** resolves this imbalance by implementing an autonomous, end-to-end artificial intelligence and optimization pipeline:
-- **Real-Time Meteorological Ingestion:** Connects to the free, open Open-Meteo Solar Radiation API to ingest hourly Global Tilted Irradiance (GTI), cloud cover, and ambient temperature for any coordinates (with built-in presets for Jammu, Delhi, Mumbai, Bengaluru, Jaipur, and Chennai).
-- **Hybrid Machine Learning Forecasting Engine:** Combines a Deep Learning 2-layer Stacked PyTorch LSTM ($55\%$ ensemble weight) with an Extreme Gradient Boosting (XGBoost) Regressor ($45\%$ ensemble weight) to forecast 24-hour generation and community baseline demand.
-- **Phase 5 Heuristic Load Scheduler:** Formulates a multi-constraint Greedy Priority Bin-Packing algorithm that shifts high-wattage deferrable loads into identified solar surplus windows while strictly enforcing non-interruptible charging blocks, pump operational deadlines, and transformer capacity caps (35 kW).
-- **Economic & Environmental Ledgers:** Computes exact Time-of-Day (ToD) electricity bill reductions in Indian Rupees (₹) and tracks real-world decarbonization using Central Electricity Authority (CEA) grid emission factors ($0.82\text{ kg CO}_2/\text{kWh}$) and mature tree sequestration equivalents ($21.77\text{ kg CO}_2/\text{tree/year}$).
-- **Production Dashboard & "Ask SolarGrid" AI Briefing:** Delivers an interactive 6-tab Streamlit dashboard with real-time What-If forecasting, Plotly Gantt scheduling timelines, and a natural language narrative summary box for non-technical facility managers.
+Without intelligent demand-side management (DSM), unconsumed solar surplus is curtailed or fed back to the utility at unattractive feed-in tariffs (≈₹2.50/kWh), while heavy appliances (EV charging fleets, borewell water pumps, HVAC pre-cooling) draw energy during expensive peak periods (up to ₹8.50/kWh).
+
+**SolarGrid** resolves this imbalance with an autonomous, end-to-end AI and optimization pipeline:
+
+- **Real-Time Meteorological Ingestion:** Connects to the free, open **Open-Meteo Forecast API** to ingest one full local calendar day (00:00–23:00) of hourly Global Tilted Irradiance (GTI), Direct Normal Irradiance (DNI), cloud cover and ambient temperature for any coordinates, with built-in presets for Jammu, Delhi, Mumbai, Bengaluru, Jaipur and Chennai.
+- **Hybrid Machine-Learning Forecasting Engine:** Combines a 2-layer stacked **PyTorch LSTM** (ensemble weight 0.55) with an **XGBoost Regressor** (weight 0.45) to forecast 24-hour generation; community baseline demand is forecast by a dedicated XGBoost regressor.
+- **Phase 5 Heuristic Load Scheduler:** A multi-constraint **Greedy Priority Bin-Packing** algorithm shifts high-wattage deferrable loads into solar-surplus windows while enforcing non-interruptible charging blocks, operating deadlines and a transformer capacity cap.
+- **Interactive Per-Unit Appliance Configuration (new):** Operators choose the **number of units** of each appliance, each unit's **kW rating** and **run-duration**, and the **transformer limit (20–60 kW)**. Each unit becomes an independent scheduling instance (e.g. `EV Charger #1`, `EV Charger #2`) so loads interleave across surplus hours. Every chart, ₹ saving and CO₂ figure recomputes instantly.
+- **Economic & Environmental Ledgers:** Computes Time-of-Day (ToD) bill reductions in Indian Rupees and decarbonization using CEA grid emission factors (0.82 kg CO₂/kWh) and mature-tree sequestration equivalents (21.77 kg CO₂/tree/year).
+- **Production Dashboard & "Ask SolarGrid" AI Briefing:** An interactive Streamlit dashboard with **four weather-driven tabs in Live City mode** and **six tabs in Historical Benchmark mode** (the two static dataset/model tabs are hidden in live mode), Plotly Gantt timelines, a 24-hour stacked power-balance chart, and a natural-language narrative summary for non-technical facility managers.
 
 ---
 
@@ -37,7 +40,7 @@ Without intelligent demand-side management (DSM), the unconsumed solar surplus i
 3. [Phase 1 & 2: Meteorological Modeling & Database Architecture](#3-phase-1--2-meteorological-modeling--database-architecture)
 4. [Real Data Integration Layer (Zero Hardware Architecture)](#4-real-data-integration-layer-zero-hardware-architecture)
 5. [Phase 3 & 4: Machine Learning & Deep Learning Forecasting Engine](#5-phase-3--4-machine-learning--deep-learning-forecasting-engine)
-6. [Phase 5: Heuristic Load Scheduler & Priority Allocator](#6-phase-5-heuristic-load-scheduler--priority-allocator)
+6. [Phase 5: Heuristic Load Scheduler & Interactive Appliance Configuration](#6-phase-5-heuristic-load-scheduler--interactive-appliance-configuration)
 7. [Phase 6: Optimization Dashboard, Economic & Carbon Accounting](#7-phase-6-optimization-dashboard-economic--carbon-accounting)
 8. [Phase 7: Validation, Testing Suite & Deployment](#8-phase-7-validation-testing-suite--deployment)
 9. [Codebase Walkthrough & Developer Onboarding Guide](#9-codebase-walkthrough--developer-onboarding-guide)
@@ -50,11 +53,11 @@ Without intelligent demand-side management (DSM), the unconsumed solar surplus i
 ### 1. Project Background, Problem Statement & Motivation
 
 #### 1.1 The Renewable Energy Paradox
-In community microgrids equipped with rooftop PV panels (e.g., residential societies, educational campuses, industrial parks), generation depends strictly on extraterrestrial solar geometry and atmospheric transmittance:
-- **Maximum Solar Production:** Concentrated between 10:00 AM and 3:00 PM (1000 W/m² peak clear-sky irradiance).
-- **Human Behavioral Load:** Residential consumers occupy residences predominantly before 9:00 AM and after 6:00 PM. During midday, homes are largely unoccupied, causing base demand to drop to baseline standby levels (refrigeration, networking, idling electronics).
+In community microgrids with rooftop PV (residential societies, campuses, industrial parks), generation depends on extraterrestrial solar geometry and atmospheric transmittance:
+- **Maximum solar production:** concentrated between 10:00 AM and 3:00 PM (≈1000 W/m² peak clear-sky irradiance).
+- **Human behavioural load:** residents occupy homes predominantly before 9:00 AM and after 6:00 PM. During midday, homes are largely unoccupied, so base demand drops to standby levels (refrigeration, networking, idling electronics).
 
-This misalignment creates the classic electrical engineering phenomenon known as the **"Duck Curve"**:
+This misalignment creates the classic **"Duck Curve"**:
 ```
 Power (kW)
    ^
@@ -70,43 +73,43 @@ Power (kW)
 ```
 
 #### 1.2 The Economic & Environmental Penalty
-In India, state distribution companies (DISCOMs) implement Time-of-Day (ToD) tariff structures:
-- **Peak Hours (18:00 – 22:00):** Highest commercial/domestic tariff slab: **₹8.50 per kWh**.
-- **Normal Hours (06:00 – 18:00, 22:00 – 23:00):** Standard slab: **₹5.50 per kWh**.
-- **Off-Peak Night Hours (23:00 – 06:00):** Lowest incentive slab: **₹4.00 per kWh**.
-- **Net-Metering Solar Export Credit:** Negligible feed-in reimbursement: **₹2.50 per kWh**.
+Indian state distribution companies (DISCOMs) implement Time-of-Day (ToD) tariffs. SolarGrid models the following India-inspired bands (see `models/scheduler.py::_tariff_for_hour`):
+- **Peak (18:00–21:00):** ₹8.50/kWh.
+- **Normal (06:00–17:00 and 22:00):** ₹5.50/kWh.
+- **Off-peak night (00:00–05:00 and 23:00):** ₹4.00/kWh.
+- **Net-metering solar export credit:** ≈₹2.50/kWh (used only as narrative context).
 
-When community appliances—such as electric vehicle (EV) charging stations (11 kW) and community water distribution pumps (5 kW)—are operated uncoordinatedly, facility managers typically run them during morning or evening peak periods. Consequently:
-1. The society purchases expensive grid electricity at **₹8.50/kWh**.
-2. Midday solar energy is exported back to the grid for a meager credit of **₹2.50/kWh**, losing ₹6.00 per unit of energy generated.
-3. Coal-fired thermal power plants ramp up spinning reserves to satisfy the evening community spike, emitting **0.82 kg of CO₂ per kWh**.
+When community appliances run uncoordinated in morning/evening peaks:
+1. The society buys expensive grid electricity at ₹8.50/kWh.
+2. Midday solar is exported for a meagre ₹2.50/kWh credit, losing ≈₹6.00 per unit.
+3. Coal-fired thermal plants ramp spinning reserves for the evening spike, emitting ≈0.82 kg CO₂/kWh.
 
 #### 1.3 Project Objective
-SolarGrid automates the solution:
-1. **Predict:** Forecast both solar generation and baseline community load 24 hours ahead using deep learning and gradient boosted trees.
-2. **Identify:** Quantify the exact hourly net energy balance $B(t) = P_{\text{solar}}(t) - P_{\text{demand}}(t)$.
-3. **Optimize:** Shift high-wattage deferrable community loads into positive surplus hours ($B(t) > 0$) using priority bin-packing heuristics without exceeding physical transformer safety thresholds.
-4. **Quantify:** Measure and display financial savings in ₹ and environmental carbon reductions in kg of CO₂ and equivalent mature trees planted.
+1. **Predict:** forecast solar generation and baseline community load 24 hours ahead.
+2. **Identify:** quantify the hourly net energy balance `B(t) = P_solar(t) − P_demand(t)`.
+3. **Optimize:** shift deferrable community loads into positive-surplus hours (`B(t) > 0`) using priority bin-packing, without exceeding transformer safety thresholds.
+4. **Quantify:** measure financial savings (₹) and environmental reduction (kg CO₂, equivalent trees).
+5. **Empower (new):** let operators model their own appliance fleet interactively — unit counts, kW ratings, durations and transformer cap — and see the impact immediately.
 
 ---
 
 ### 2. Complete System Architecture & High-Level Data Flow
 
-SolarGrid is built as a modular, 5-tier architecture connecting external meteorological data providers, local relational persistence, machine learning inference, scheduling algorithms, and an interactive presentation interface.
+SolarGrid is a modular, 5-tier architecture connecting external meteorological providers, local relational persistence, ML inference, scheduling, and an interactive presentation interface.
 
 ```mermaid
 flowchart TD
     subgraph Layer1["1. Meteorological & Sensor Ingestion Layer"]
-        OM["Open-Meteo REST API (Live GTI, Temp, Clouds)"] --> DF["data_fetcher.py"]
-        DG["Synthetic Physics Generator (Clear-Sky Math)"] --> DB[("solargrid.db (SQLite WAL)")]
-        DF -.-> DB
+        OM["Open-Meteo Forecast API (Live GTI, Temp, Clouds)"] --> DF["data_fetcher.py"]
+        DG["Synthetic Physics Generator (data_gen.py)"] --> DB[("solargrid.db (SQLite WAL)")]
     end
 
-    subgraph Layer2["2. Feature Engineering & Machine Learning Pipeline"]
-        DB --> FeatEng["Temporal Trigonometry (Hour/DoW sin-cos) + StandardScaler"]
-        FeatEng --> LSTM["PyTorch 2-Layer Stacked LSTM (Weight: 0.55)"]
-        FeatEng --> XGB_S["XGBoost Regressor - Solar (Weight: 0.45)"]
-        FeatEng --> XGB_D["XGBoost Regressor - Community Demand"]
+    subgraph Layer2["2. Feature Engineering & ML Pipeline (models/forecast.py)"]
+        DB --> FeatEng["Cyclical time encoding (hour/DoW sin-cos) + StandardScaler"]
+        OM --> FeatEng
+        FeatEng --> LSTM["PyTorch 2-Layer Stacked LSTM (weight 0.55)"]
+        FeatEng --> XGB_S["XGBoost Regressor — Solar (weight 0.45)"]
+        FeatEng --> XGB_D["XGBoost Regressor — Community Demand"]
         LSTM --> Ensemble["Hybrid Solar Forecast Engine"]
         XGB_S --> Ensemble
     end
@@ -114,63 +117,61 @@ flowchart TD
     subgraph Layer3["3. Net Energy Balance & Boundary Detection"]
         Ensemble --> Balance["B(t) = P_solar(t) - P_demand(t)"]
         XGB_D --> Balance
-        Balance --> SurplusWindow["Identify Surplus Window: B(t) > 0 (10 AM - 3 PM)"]
+        Balance --> SurplusWindow["Surplus window: B(t) > 0 (≈10 AM - 3 PM)"]
     end
 
     subgraph Layer4["4. Phase 5 Heuristic Scheduling Engine"]
         SurplusWindow --> Sched["Greedy Priority Bin-Packing (models/scheduler.py)"]
-        AppRegistry["Appliance Registry: EV (11kW, P1), Pump (5kW, P2), HVAC (3.5kW, P3)"] --> Sched
-        TransformerCap["Safety Constraint: Transformer Max Cap <= 35 kW"] --> Sched
-        Sched --> Timetable["Optimized 24-Hour Appliance Execution Schedule"]
+        UI["Interactive Appliance Config (app_v2.py Tab 6)"] --> Cfg["_configured_appliances(): one Appliance per unit"]
+        Cfg --> Sched
+        Cap["Transformer cap (20-60 kW, default 35)"] --> Sched
+        Sched --> Timetable["24-Hour Schedule + total_load_per_hour + unscheduled"]
     end
 
     subgraph Layer5["5. Economic, Environmental & UI Presentation Layer"]
-        Timetable --> ToD["ToD Financial Ledger (Peak ₹8.5, Normal ₹5.5, Off-Peak ₹4.0)"]
-        Timetable --> Carbon["Carbon Ledger (0.82 kg CO2/kWh, 21.77 kg/tree/yr)"]
-        Timetable --> AppV2["Streamlit Production Portal (app_v2.py / app.py)"]
-        ToD --> AppV2
+        Timetable --> ToD["ToD Ledger (Peak ₹8.5 / Normal ₹5.5 / Off-peak ₹4.0)"]
+        Timetable --> Carbon["Carbon Ledger (0.82 kg CO₂/kWh · 21.77 kg/tree/yr)"]
+        ToD --> AppV2["Streamlit Portal — 4 live tabs / 6 benchmark tabs"]
         Carbon --> AppV2
-        AppV2 --> AISummary["'Ask SolarGrid' AI Natural Language Briefing"]
-        AppV2 --> GanttChart["Plotly Schedule Gantt Chart & 24h Area Power Balance"]
+        AppV2 --> AISummary["'Ask SolarGrid' AI Natural-Language Briefing"]
+        AppV2 --> GanttChart["Plotly Gantt + 24h Stacked Power Balance"]
     end
 ```
+
+**Shared-configuration invariant:** `_appliance_settings()` reads widget values from `st.session_state`, and `_configured_appliances()` expands them into a list of `Appliance` instances. The **same** list and the **same** `peak_cap_kw` are passed to both the Carbon & Savings tab and the Smart Scheduler tab, guaranteeing the two tabs always agree.
 
 ---
 
 ### 3. Phase 1 & 2: Meteorological Modeling & Database Architecture
 
 #### 3.1 Physics Modeling for Clear-Sky Solar Irradiance
-When external internet connectivity is absent or for offline synthetic benchmarking, SolarGrid implements empirical astronomical solar geometry equations (`data_gen.py`):
+For offline synthetic benchmarking (and as a fallback when models or network are unavailable), `data_gen.py` implements empirical astronomical solar-geometry equations:
 
-1. **Clear-Sky Irradiance ($I_{\text{cs}}$):**  
-   Solar elevation follows a diurnal half-sine wave between sunrise ($t = 6$) and sunset ($t = 18$):
-   $$I_{\text{cs}}(t) = \max\left(0, 1000 \cdot \sin\left(\frac{\pi (t - 6)}{12}\right)\right) \quad [\text{W/m}^2]$$
+1. **Clear-sky irradiance** follows a diurnal half-sine between sunrise (t≈6) and sunset (t≈18):
+   `I_cs(t) = max(0, 1000 · sin(π · (t − 6) / 12))  [W/m²]`
+2. **Atmospheric attenuation (Beer-Lambert approximation):** cloud cover `C ∈ [0,100]` reduces incoming radiation via a transmittance factor, with small Gaussian noise added.
+3. **Photovoltaic power output** accounts for rated capacity (`P_rated = 50 kW`), cell-temperature derating (−0.4%/°C above the 25°C standard test condition) and inverter/system efficiency (≈0.95):
+   `P_solar(t) = P_rated · (I_actual(t)/1000) · [1 − 0.004·(T_ambient − 25)] · η_inv`
 
-2. **Atmospheric Optical Attenuation (Beer-Lambert Approximation):**  
-   Cloud cover percentage $C \in [0, 100]$ attenuates incoming direct and diffuse radiation:
-   $$I_{\text{actual}}(t) = I_{\text{cs}}(t) \cdot \left(1 - 0.75 \cdot \left(\frac{C}{100}\right)^2\right) + \epsilon, \quad \epsilon \sim \mathcal{N}(0, 10)$$
-
-3. **Photovoltaic Power Output ($P_{\text{solar}}$):**  
-   Power generation accounts for rated capacity ($P_{\text{rated}} = 50\text{ kW}$), cell temperature derating ($-0.4\%/^\circ\text{C}$ above standard test condition $25^\circ\text{C}$), and inverter efficiency ($\eta_{\text{inv}} = 0.95$):
-   $$P_{\text{solar}}(t) = P_{\text{rated}} \cdot \left(\frac{I_{\text{actual}}(t)}{1000}\right) \cdot [1 - 0.004 \cdot (T_{\text{ambient}} - 25)] \cdot \eta_{\text{inv}}$$
+The generator uses a fixed random seed (42) and produces **30 days × 24 hours = 720 records** starting 2024-01-01.
 
 #### 3.2 Dual-Peak Community Load Model
-Baseline community demand $P_{\text{demand}}(t)$ models residential human activities using a baseline standby consumption ($P_{\text{base}} = 6.0\text{ kW}$) superposed with two Gaussian behavioral lobes:
-$$P_{\text{demand}}(t) = P_{\text{base}} + A_1 \exp\left(-\frac{(t - \mu_1)^2}{2\sigma_1^2}\right) + A_2 \exp\left(-\frac{(t - \mu_2)^2}{2\sigma_2^2}\right) + \mathcal{N}(0, \sigma_{\text{noise}})$$
-- **Morning Peak ($\mu_1 = 8.0, \sigma_1 = 1.5, A_1 = 15.0\text{ kW}$):** Water heaters, kitchen appliances, community elevators, and pump starts.
-- **Evening Peak ($\mu_2 = 19.5, \sigma_2 = 1.8, A_2 = 25.0\text{ kW}$):** Air conditioning, lighting, entertainment, and cooking appliances.
-- **Midday Valley ($11:00 – 16:00$):** Demand drops to $10.0 – 14.0\text{ kW}$, exactly when solar generation surges to $35.0 – 48.0\text{ kW}$.
+Baseline demand models residential activity as a standby base plus two Gaussian behavioural lobes:
+`P_demand(t) = P_base + A₁·exp(−(t−μ₁)²/2σ₁²) + A₂·exp(−(t−μ₂)²/2σ₂²) + noise`
+- **Morning peak** (μ₁≈8.0, σ₁≈1.5): water heaters, kitchen appliances, elevators, pump starts.
+- **Evening peak** (μ₂≈19.5, σ₂≈1.8): air conditioning, lighting, entertainment, cooking.
+- **Midday valley (11:00–16:00):** demand falls to ≈10–14 kW exactly when solar surges to ≈35–48 kW.
+- Community peak demand scale ≈45 kW (representative ~20-home community).
 
 #### 3.3 Relational SQLite Database Architecture (`database/db_manager.py`)
-Data persistence uses an embedded SQLite database (`solargrid.db`) configured with **Write-Ahead Logging (WAL)** mode to enable high-concurrency non-blocking reads during Streamlit re-renders.
+Persistence uses an embedded SQLite database (`solargrid.db`) in **Write-Ahead Logging (WAL)** mode for non-blocking concurrent reads during Streamlit re-renders. The DB path is resolved relative to the module so the app works from any working directory.
 
-**Schema Definitions:**
 ```sql
 CREATE TABLE IF NOT EXISTS historical_energy (
     id                            INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp                     TEXT    NOT NULL UNIQUE,
     temperature_c                 REAL    NOT NULL,  -- Ambient temperature (°C)
-    cloud_cover_pct               REAL    NOT NULL,  -- Fractional cloudiness (0-100%)
+    cloud_cover_pct               REAL    NOT NULL,  -- Cloudiness (0-100%)
     solar_irradiance_wm2          REAL    NOT NULL,  -- Global Tilted Irradiance (W/m²)
     historical_solar_gen_kw       REAL    NOT NULL,  -- Photovoltaic power generated (kW)
     historical_baseline_demand_kw REAL    NOT NULL   -- Community load consumed (kW)
@@ -190,20 +191,25 @@ CREATE TABLE IF NOT EXISTS forecasts (
 ### 4. Real Data Integration Layer (Zero Hardware Architecture)
 
 #### 4.1 Resolving the Academic Guide Pushback
-A frequent criticism from university project evaluators is reliance on purely mock or synthetic data. While deploying physical IoT pyranometers, smart meters, and RS485 communication modems across a community microgrid is capital-intensive and fragile for classroom demonstrations, **SolarGrid solves this without requiring hardware** by integrating real-world meteorological REST APIs.
+A frequent criticism from evaluators is reliance on purely synthetic data. Deploying physical IoT pyranometers, smart meters and RS485 modems across a community microgrid is capital-intensive and fragile for classroom demonstrations. **SolarGrid solves this without hardware** by integrating real-world meteorological REST APIs.
 
-#### 4.2 Open-Meteo Solar Radiation API Integration (`data_fetcher.py`)
-SolarGrid connects directly to the Open-Meteo European Centre for Medium-Range Weather Forecasts (ECMWF) and NOAA meteorological data feeds:
-- **No API Key Required:** Eliminates authentication rate limits, expiry risks, or credit card requirements.
-- **Global High-Resolution Coordinates:** Supports 0.1° (~11 km) spatial resolution.
-- **Parameters Ingested:**
-  - `global_tilted_irradiance` (GTI): Direct incoming solar irradiance accounting for panel tilt angle.
-  - `direct_normal_irradiance` (DNI): Direct beam radiation.
-  - `cloud_cover`: Total cloud coverage percentage across low, medium, and high cloud strata.
-  - `temperature_2m`: Ambient dry-bulb temperature measured 2 meters above ground.
+#### 4.2 Open-Meteo Forecast API Integration (`data_fetcher.py`)
+`fetch_live_forecast(lat, lon, city_name, target_date)` requests one full local calendar day:
+```
+https://api.open-meteo.com/v1/forecast
+  ?latitude={lat}&longitude={lon}
+  &hourly=temperature_2m,cloud_cover,direct_normal_irradiance,global_tilted_irradiance
+  &start_date={day}&end_date={day}&timezone=auto
+```
+- **No API key required;** no authentication, rate-limit keys or credit card.
+- **Parameters ingested:** `global_tilted_irradiance` (GTI → `solar_irradiance_wm2`), `direct_normal_irradiance` (DNI), `cloud_cover` (kept as %), `temperature_2m` (ambient dry-bulb).
+- **Local time:** `timezone=auto` returns timestamps in the city's local timezone; `start_date=end_date` guarantees a complete 00:00–23:00 day (24 rows).
+- **Robustness:** stdlib `urllib` (no `requests` dependency), custom User-Agent, 15 s timeout, 3 retries with backoff; occasional nulls are interpolated (not dropped) so the row index stays aligned to the hour of day. Incomplete days return `None`.
+- **Feature schema:** cyclical encodings (`hour_sin/cos`, `dow_sin/cos`, `day_of_year`) are appended so the returned DataFrame matches the inference schema exactly.
+
+A second function, `fetch_historical_archive(...)`, uses the Open-Meteo **Archive** API for real historical weather; it is available for dataset regeneration but is not used by the live dashboard mode.
 
 #### 4.3 Built-in Indian City Presets
-`data_fetcher.py` provides immediate preset coordinates for major Indian microgrid demonstration regions:
 ```python
 CITY_PRESETS = {
     "Jammu":     {"lat": 32.7266, "lon": 74.8570},
@@ -215,17 +221,17 @@ CITY_PRESETS = {
 }
 ```
 
-#### 4.4 Live "What-If" Forecast Mode
-In the user interface, switching to **"🌐 Live City Forecast"** dynamically triggers `fetch_live_forecast(lat, lon)`. The live hourly weather vectors are normalized and passed through the saved PyTorch and XGBoost weights, generating predictions grounded in **today's actual atmospheric conditions**. If network connectivity drops, the system gracefully falls back to the physics generator without crashing.
+#### 4.4 Live "What-If" Forecast Mode & Graceful Fallback
+Selecting **"🌐 Live City Forecast"** triggers `load_live_forecast(...)`, which calls the cached `_live_forecast_cached(...)`. The cache **raises on failure** so Streamlit never caches a failed fetch. On any exception the app falls back to the benchmark synthetic forecast and renders a warning banner; on success it renders a live banner naming the city, date and fetch time. The live weather vectors are normalized and passed through the saved PyTorch and XGBoost weights, producing predictions grounded in **today's actual atmospheric conditions**.
 
 ---
 
 ### 5. Phase 3 & 4: Machine Learning & Deep Learning Forecasting Engine
 
-SolarGrid deploys a **hybrid ensemble architecture** combining recurrent deep neural networks with gradient boosted decision trees.
+SolarGrid deploys a **hybrid ensemble** combining a recurrent deep network with gradient-boosted trees.
 
 ```
-Incoming Weather Vector: [Temp, Cloud Cover, Irradiance, Sin(Hour), Cos(Hour), Sin(DoW), Cos(DoW), DayOfYear]
+Weather vector: [Temp, Cloud%, GTI, sin(Hour), cos(Hour), sin(DoW), cos(DoW), DayOfYear]
                                 |
              +------------------+------------------+
              |                                     |
@@ -238,244 +244,280 @@ Incoming Weather Vector: [Temp, Cloud Cover, Irradiance, Sin(Hour), Cos(Hour), S
              |                                     |
       Solar Pred (LSTM)                     Solar Pred (XGB)
              |                                     |
-             +-------------> [ 0.55 * LSTM + 0.45 * XGB ] ----> Final Solar Forecast
-                                                                   (kW, 24 Hours)
+             +-------------> [ 0.55·LSTM + 0.45·XGB ] ----> Final Solar Forecast (kW, 24 h)
+
+      Demand Pred (XGB) ----------------------------------> Community Demand (kW, 24 h)
 ```
 
 #### 5.1 Temporal Feature Engineering (`models/train_models.py`)
-To prevent the artificial numerical discontinuity between hour 23 (23:00) and hour 0 (00:00), circular trigonometric transforms are applied:
-$$\text{Hour}_{\sin} = \sin\left(\frac{2\pi \cdot t}{24}\right), \quad \text{Hour}_{\cos} = \cos\left(\frac{2\pi \cdot t}{24}\right)$$
-$$\text{DoW}_{\sin} = \sin\left(\frac{2\pi \cdot d}{7}\right), \quad \text{DoW}_{\cos} = \cos\left(\frac{2\pi \cdot d}{7}\right)$$
-Continuous features (`temperature_c`, `cloud_cover_pct`, `solar_irradiance_wm2`) are normalized to zero mean and unit variance using scikit-learn's `StandardScaler`.
+To avoid the artificial discontinuity between hour 23 and hour 0, circular trigonometric transforms are applied:
+`Hour_sin = sin(2π·t/24)`, `Hour_cos = cos(2π·t/24)`, `DoW_sin = sin(2π·d/7)`, `DoW_cos = cos(2π·d/7)`.
+Continuous features (`temperature_c`, `cloud_cover_pct`, `solar_irradiance_wm2`) are normalized to zero mean and unit variance with scikit-learn `StandardScaler`. Separate scalers are fitted for the solar and demand targets. The eight feature columns are persisted to `models/saved/feature_cols.json`.
 
-#### 5.2 PyTorch Two-Stage Stacked LSTM (`models/lstm_model.py`)
-- **Lookback Window:** Sequence length of $T = 24$ preceding hourly time-steps to capture diurnality and moving cloud systems.
-- **Layer 1:** LSTM cell with 64 hidden units, capturing long-term diurnal transitions.
-- **Dropout:** $p = 0.20$ to prevent co-adaptation of weights on limited training samples.
-- **Layer 2:** Stacked LSTM cell with 64 hidden units, refining short-term hourly transitions.
-- **Regression Head:** Fully connected linear layers: $\text{Linear}(64 \to 32) \to \text{ReLU} \to \text{Dropout}(0.2) \to \text{Linear}(32 \to 1)$.
-- **Optimization:** Adam optimizer ($\alpha = 0.001$, $\text{weight decay} = 10^{-4}$), MSE loss function.
+#### 5.2 PyTorch Two-Layer Stacked LSTM (`models/lstm_model.py`)
+- **Input:** 8 features; **lookback window** `seq_len = 24` preceding hourly steps.
+- **Recurrent stack:** 2 LSTM layers, 64 hidden units each, `batch_first=True`, dropout 0.2 between layers.
+- **Regression head:** the **last** hidden state is taken (many-to-one), passed through dropout, then a single `Linear(64 → 1)` layer. *(The head is a single linear projection, not a multi-layer MLP.)*
+- **Optimization:** Adam (lr = 1e-3), **Huber loss** (robust to outliers vs plain MSE), gradient-norm clipping (max_norm = 1.0), 30 epochs, batch size 32, no shuffle (temporal order preserved). The best-validation-loss weights are checkpointed and restored before saving.
+- **Inference warm-up:** for a 24-hour look-ahead the first feature row is replicated `seq_len` times as warm-up history (`models/forecast.py`).
 
-#### 5.3 Extreme Gradient Boosting (XGBoost Regressor)
-While LSTM models excel at temporal autoregression, tree ensembles excel at abrupt non-linear boundary splits (e.g., cloud cover crossing an optical threshold causing generation collapse):
-- **Hyperparameters:** `n_estimators = 300`, `max_depth = 6`, `learning_rate = 0.05`, `subsample = 0.85`, `colsample_bytree = 0.85`.
-- **Solar Generation Model (`xgb_solar.joblib` / `xgb_solar.json`):** Maps instantaneous meteorological features to photovoltaic kW.
-- **Demand Model (`xgb_demand.joblib` / `xgb_demand.json`):** Captures seasonal, day-of-week, and temperature correlations driving residential air conditioning and heating power draw.
+#### 5.3 Extreme Gradient Boosting (XGBoost Regressors)
+Tree ensembles capture abrupt non-linear boundaries (e.g. cloud cover crossing an optical threshold) and temperature-driven cooling load:
+- **Hyperparameters:** `n_estimators = 300`, `max_depth = 6`, `learning_rate = 0.05`, `subsample = 0.8`, `colsample_bytree = 0.8`, `tree_method = "hist"`, `early_stopping_rounds = 20`, `eval_metric = "mae"`, `random_state = 42`.
+- **Solar model** (`xgb_solar.joblib` / `.json`) and **Demand model** (`xgb_demand.joblib` / `.json`) are saved in both joblib and native JSON formats for portable loading.
 
-#### 5.4 Empirical Validation Results
-Models were evaluated on a chronologically partitioned holdout test set (final $20\%$ of records / 144 unseen hours):
+#### 5.4 Ensemble Blend & Empirical Validation
+At inference (`models/forecast.py`): `predicted_solar = 0.55·LSTM + 0.45·XGBoost`; `predicted_demand = XGBoost_demand`. Outputs are clipped to physical bounds (solar 0–55 kW, demand 3–55 kW). If model artefacts are missing, a physics-only fallback keeps the UI functional.
 
-| Forecasting Model | Target Variable | MAE (kW) | RMSE (kW) | MAPE (%) | Test $R^2$ Score |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| Standalone PyTorch LSTM | Solar Generation | 1.58 | 3.42 | 11.2% | 0.892 |
-| Standalone XGBoost | Solar Generation | 1.41 | 3.25 | 9.8% | 0.908 |
-| **SolarGrid Hybrid Ensemble** | **Solar Generation** | **1.34** | **3.13** | **9.14%** | **0.924** |
-| XGBoost Demand Engine | Community Demand | 0.91 | 2.21 | 6.41% | 0.938 |
+Models are evaluated on a **chronological 80/20 holdout** (final 20% = **144 unseen hours**). The training script persists **MAE / RMSE / MAPE** to `models/saved/metrics.json`:
 
-**Key Academic Finding:** Blending LSTM ($55\%$) and XGBoost ($45\%$) reduces Mean Absolute Error by **$15.2\%$** compared to standalone LSTM and **$5.0\%$** compared to standalone XGBoost, proving the superiority of the hybrid approach.
+| Target Variable | MAE (kW) | RMSE (kW) | MAPE (%) |
+| :--- | :---: | :---: | :---: |
+| Solar Generation (XGBoost holdout) | 1.338 | 3.133 | 9.14 |
+| Community Demand (XGBoost holdout) | 0.913 | 2.214 | 6.41 |
+
+> **Academic integrity note:** `metrics.json` currently stores MAE/RMSE/MAPE only. The training script does **not** compute an R² score or a formal standalone-LSTM vs standalone-XGBoost ablation table. Earlier drafts of this report quoted such figures; they have been removed because they are not produced by the current code. A rigorous ablation and R² study is listed under Future Work (§11.3). The ensemble *blend weights* (0.55/0.45) and the qualitative rationale (LSTM for temporal smoothness, XGBoost for sharp non-linear thresholds) are implemented and verified.
 
 ---
 
-### 6. Phase 5: Heuristic Load Scheduler & Priority Allocator
+### 6. Phase 5: Heuristic Load Scheduler & Interactive Appliance Configuration
 
 #### 6.1 The Scheduling Challenge & Mathematical Formulation
-The scheduler receives the 24-hour forecasted solar curve $\hat{P}_{\text{solar}}(t)$ and baseline community demand curve $\hat{P}_{\text{demand}}(t)$. It computes the net energy balance:
-$$B(t) = \hat{P}_{\text{solar}}(t) - \hat{P}_{\text{demand}}(t), \quad t \in \{0, 1, \dots, 23\}$$
-- **Surplus Window:** Hours where $B(t) > 0$ (typically $10:00 \le t \le 15:00$).
-- **Deficit Window:** Hours where $B(t) < 0$ (grid draw required).
+The scheduler receives forecasted solar `P_solar(t)` and baseline demand `P_demand(t)` and computes:
+`B(t) = P_solar(t) − P_demand(t),  t ∈ {0,…,23}`
+- **Surplus window:** hours where `B(t) > 0` (typically 10:00–15:00).
+- **Deficit window:** hours where `B(t) < 0` (grid draw required).
 
-#### 6.2 Appliance Constraint Matrix
-Community loads cannot be shifted arbitrarily. Each appliance possesses operational physics:
+#### 6.2 Appliance Constraint Matrix (defaults)
+Each appliance has operational physics encoded in the `Appliance` dataclass (`models/scheduler.py`):
 
-| Appliance | Rated Power ($P_k$) | Duration ($D_k$) | Priority | Interruptible? | Earliest Start | Deadline | Real-World Operational Context |
+| Appliance | Rated Power | Duration | Priority | Interruptible? | Earliest Start | Deadline | Context |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **EV Charging Fleet** | 11.0 kW | 3 hours | 1 (Highest) | **No** (Continuous) | 06:00 | 17:00 | Community electric vehicle fast charging. Battery BMS requires continuous uninterrupted power. Must finish before residents return from work. |
-| **Community Water Pump** | 5.0 kW | 2 hours | 2 | **Yes** (Flexible) | 06:00 | 18:00 | Borewell or overhead reservoir lifting. Can run in split 1-hour sessions before evening water supply starts. |
-| **HVAC Pre-cooling** | 3.5 kW | 2 hours | 3 | **Yes** (Flexible) | 09:00 | 16:00 | Pre-cooling community clubhouse/common rooms during peak solar insolation to reduce evening AC spikes. |
+| **EV Charging Fleet** | 11.0 kW | 3 h | 1 (highest) | **No** (continuous) | 06:00 | 17:00 | Community EV fast charging; BMS needs uninterrupted power; finish before residents return. |
+| **Community Water Pump** | 5.0 kW | 2 h | 2 | **Yes** (splittable) | 06:00 | 18:00 | Borewell/reservoir lifting; can run in split sessions before evening supply. |
+| **HVAC Pre-cooling** | 3.5 kW | 2 h | 3 | **Yes** (splittable) | 09:00 | 16:00 | Pre-cool common areas during peak insolation to reduce evening AC spikes. |
 
-#### 6.3 The Greedy Priority Bin-Packing Algorithm (`models/scheduler.py`)
+#### 6.3 Interactive Per-Unit Configuration (Option B — individual instances)
+The Smart Scheduler tab exposes a bordered card per category. The UI specification lives in `app_v2.py::_APPLIANCE_UI` and is zipped with `DEFAULT_APPLIANCES` so the model and UI stay in sync:
 
-```python
-# Formal Algorithm Pseudo-code:
+| Control | EV Charger 🔌 | Water Pump 💧 | HVAC Zone ❄️ |
+| :--- | :---: | :---: | :---: |
+| Number of units | 1–5 | 1–4 | 1–3 |
+| Power per unit (kW), step 0.5 | 3.0–22.0 | 1.0–15.0 | 1.0–10.0 |
+| Run duration (h) | 1–6 | 1–4 | 1–4 |
+
+A global **🛡️ Distribution Transformer Limit** slider sets `peak_cap_kw` (**20–60 kW**, default 35, step 1).
+
+**Expansion logic** (`_configured_appliances`): for each enabled category, one `Appliance` is created **per unit** using `dataclasses.replace(base, name=…, power_kw=cfg_kw, duration_hours=cfg_dur)`. When count > 1 the instances are named `EV Charger #1`, `EV Charger #2`, …; when count = 1 the base name is kept. `DEFAULT_APPLIANCES` is never mutated. Because each unit is scheduled independently, the scheduler can **interleave** units into different surplus hours rather than forcing one oversized block.
+
+**Shared state:** `_appliance_settings()` reads values from `st.session_state` (with defaults on first load). This is necessary because the Carbon & Savings tab renders *before* the Scheduler tab creates its widgets. Both tabs consume the identical configured list and cap.
+
+#### 6.4 The Greedy Priority Bin-Packing Algorithm (`models/scheduler.py`)
+```text
 Input: solar_kw[0..23], demand_kw[0..23], appliances, peak_cap_kw = 35.0
-Output: ScheduleResult(schedule, surplus_used_kwh, grid_fallback_kwh, total_load)
+Output: ScheduleResult(schedule, surplus_used_kwh, grid_fallback_kwh,
+                       total_load_per_hour, unscheduled)
 
-1. surplus[t] = max(0, solar_kw[t] - demand_kw[t]) for t in 0..23
-2. total_load[t] = demand_kw[t] for t in 0..23
-3. Sort appliances by priority ascending (1 -> highest)
+1. surplus[t]    = solar_kw[t] - demand_kw[t]
+2. total_load[t] = demand_kw[t]
+3. Sort appliances by priority ascending (1 = highest)
 
-4. FOR EACH appliance IN appliances:
-     IF appliance.interruptible == False:
-         # Find consecutive block of length D within [earliest, deadline]
-         best_block = None
-         max_surplus_captured = -infinity
-         FOR start_h = appliance.earliest_start TO appliance.deadline_hour - appliance.duration_hours:
-             block_hours = [start_h ... start_h + appliance.duration_hours - 1]
-             # Check transformer safety cap
-             IF ALL(total_load[h] + appliance.power_kw <= peak_cap_kw FOR h IN block_hours):
-                 captured = SUM(min(surplus[h], appliance.power_kw) FOR h IN block_hours)
-                 IF captured > max_surplus_captured:
-                     max_surplus_captured = captured
-                     best_block = block_hours
-         ASSIGN appliance TO best_block
-         UPDATE surplus[h] and total_load[h]
-         
-     ELSE: # appliance.interruptible == True
-         # Rank individual candidate hours by available surplus descending
-         candidates = [h FOR h IN earliest..deadline IF total_load[h] + power <= peak_cap_kw]
-         Sort candidates by surplus[h] descending
-         Select top D hours from candidates
-         ASSIGN appliance TO selected hours
-         UPDATE surplus[h] and total_load[h]
+4. FOR EACH appliance:
+     window = [earliest_start, deadline_hour)        # must FINISH by deadline
+     IF window length < duration: mark unscheduled; continue
 
-5. IF solar surplus is exhausted:
-     Fall back remaining hours to cheapest ToD tariff slots (Night off-peak: 23:00 - 05:00)
+     IF NOT interruptible:
+        # Pass 1: best CONTINUOUS block fully covered by surplus
+        FOR start in [earliest_start .. deadline_hour - duration]:
+            block = [start .. start+duration-1]
+            IF any(total_load[t] + power > peak_cap_kw): skip
+            IF all(surplus[t] >= power): track block maximising Σ surplus
+        # Pass 2: if none, cheapest-tariff block that fits the cap
+        IF no block found: pick block minimising Σ tariff(t) subject to cap
+        IF still none: mark unscheduled; continue
+        Commit block; update surplus_used / grid_fallback / surplus / total_load
+
+     ELSE (interruptible):
+        candidates = [t in window IF total_load[t] + power <= peak_cap_kw]
+        sort candidates by surplus descending (tie-break by hour)
+        IF len(candidates) < duration: mark unscheduled; continue
+        Take top `duration` hours; commit; update running arrays
+
+5. Return ScheduleResult (rounded surplus/grid kWh)
 ```
 
-#### 6.4 Why Heuristic Bin-Packing vs. MILP Solvers?
-During academic project defense, using heavy external Mixed Integer Linear Programming (MILP) solvers (such as CBC, GLPK, or Gurobi via PuLP) introduces critical failure points:
-- Solvers require native compiled C++ binaries that frequently fail to install across varied operating systems (Windows, macOS ARM, Linux).
-- Heuristic Priority Bin-Packing solves in **$< 5$ milliseconds**, guarantees zero installation failure, achieves **$94.2\%$** of the theoretical MILP global optimum, and is entirely transparent to explain to the evaluation committee.
+#### 6.5 Why Heuristic Bin-Packing vs. MILP Solvers?
+Heavy external MILP solvers (CBC, GLPK, Gurobi via PuLP) require native compiled binaries that frequently fail to install across Windows/macOS-ARM/Linux. The heuristic solves in **milliseconds**, guarantees zero installation failure, and is fully transparent to explain to an evaluation committee. (A formal optimality-gap benchmark against a MILP optimum is future work, not a claimed result.)
+
+#### 6.6 Time-of-Day Costing Honours Custom Instances
+`compute_tod_savings(schedule_result, solar_kw, demand_kw, appliances=None)` builds a `power_lookup` from the **passed appliance list**, so renamed per-unit instances and custom kW ratings are costed correctly. *(Passing the configured list fixed a real bug: looking up names from `DEFAULT_APPLIANCES` returned 0 for renamed units and zeroed all savings.)*
+- **Baseline (worst case):** every scheduled appliance's energy `P_k · D_k` priced at the peak tariff ₹8.50.
+- **Optimized:** `Σ_t P_k · tariff(t)` over the actually-scheduled hours.
+- **Savings:** `baseline − optimized`, plus percentage reduction.
 
 ---
 
 ### 7. Phase 6: Optimization Dashboard, Economic & Carbon Accounting
 
 #### 7.1 "Ask SolarGrid" AI Narrative Briefing Box
-Non-technical facility managers, society secretaries, or viva committee members should not be forced to decipher complex multi-axis time series. At the top of Tab 5, SolarGrid renders a glassmorphic operational executive briefing box generated by a deterministic, zero-latency template engine:
-> ☀️ **Today's Conditions:** Clear Sky. Peak solar generation window: **11:00 – 14:00**.  
-> 🤖 **AI Actions Taken:** Automatically shifted **3 appliances (EV Fleet, Water Pump, HVAC)** into the solar surplus window, consuming **40.0 kWh** of otherwise-wasted solar energy.  
-> 💰 **Financial Impact:** Saved **₹285** vs unmanaged peak-hour tariff today.  
-> 🌱 **Environmental Impact:** Avoided **32.8 kg of CO₂** emissions — equivalent to planting **1.51 mature trees** today.
+At the top of the Carbon & Savings tab, a deterministic zero-latency template engine (`generate_ai_summary`) renders an executive briefing, e.g.:
+> ☀️ **Today's Conditions:** Clear. Peak solar window: **11:00–14:00**.
+> 🤖 **AI Actions Taken:** Shifted **N appliance(s)** into the surplus window, consuming **X kWh** of otherwise-wasted solar.
+> 💰 **Financial Impact:** Saved **₹…** vs unmanaged peak tariff today.
+> 🌱 **Environmental Impact:** Avoided **… kg CO₂** — equivalent to planting **… mature trees** today.
+
+The weather condition is inferred from a cloud-cover proxy derived from the solar curve; the appliance count, surplus kWh, ₹ savings and CO₂ all come from the shared scheduler result.
 
 #### 7.2 Time-of-Day (ToD) Financial Ledger
-The economic savings compare the unmanaged baseline against the AI-optimized schedule:
-1. **Unmanaged Baseline Cost ($C_{\text{base}}$):** Without intelligent scheduling, facility managers run pumps and chargers during morning (8:00 AM) or evening (7:00 PM) peak hours:
-   $$C_{\text{base}} = \sum_{k} P_k \cdot D_k \cdot \text{Tariff}_{\text{peak}} \quad (\text{at ₹8.50/kWh})$$
-2. **AI-Optimized Cost ($C_{\text{opt}}$):** Loads scheduled during solar surplus hours consume zero-cost self-generated energy. Any unavoidable grid fallback draws energy during off-peak hours:
-   $$C_{\text{opt}} = \sum_{t=0}^{23} P_{\text{grid,scheduled}}(t) \cdot \text{Tariff}(t)$$
-3. **Net Direct Savings:**
-   $$\Delta \text{Cost} = C_{\text{base}} - C_{\text{opt}}, \quad \text{Savings \%} = \frac{\Delta \text{Cost}}{C_{\text{base}}} \times 100$$
-   *Typical Daily Savings:* ₹250 – ₹450 per day (₹90,000 – ₹1,65,000 annualized community savings).
+Tariff bands (see §1.2): Peak 18–21 ₹8.50; Normal 06–17 & 22 ₹5.50; Off-peak 00–05 & 23 ₹4.00. The dashboard shows baseline (unmanaged) cost, optimized cost, net saving and % reduction in a "Tariff Cost Breakdown" expander, plus daily/monthly (×30)/annual (×365) savings KPI cards.
 
-#### 7.3 Carbon Emissions & "Trees Saved" Sequestration Counter
-The environmental calculations use standardized parameters approved by government agencies:
-1. **Grid Carbon Intensity:** According to the **Central Electricity Authority (CEA) of India CO₂ Baseline Database (Version 19)**, the weighted average grid emission factor for the Indian national grid is:
-   $$\text{Emission Factor} = 0.82\text{ kg CO}_2 \text{ per kWh}$$
-   $$\text{CO}_2\text{ Avoided (kg)} = \text{Surplus Energy Consumed (kWh)} \times 0.82$$
-2. **Equivalent Mature Trees Planted:** According to the United States Environmental Protection Agency (US EPA) and Indian forestry standards, a mature broadleaf tree absorbs approximately $21.77\text{ kg of CO}_2$ per year:
-   $$\text{Equivalent Trees Planted} = \frac{\text{CO}_2\text{ Avoided (kg)}}{21.77\text{ kg/tree/year}}$$
-   This provides an intuitive, high-scoring metric during academic ESG evaluation.
+#### 7.3 Carbon Emissions & "Trees Saved"
+`compute_carbon_savings(surplus_used_kwh)` uses:
+- **Grid carbon intensity:** 0.82 kg CO₂/kWh (CEA India baseline).
+- **Tree sequestration:** 21.77 kg CO₂ per mature tree per year.
+- Returns `co2_saved_kg`, `trees_equivalent`, `annual_co2_kg` (×365) and `annual_trees` (×365). The UI displays four carbon KPI cards (CO₂ today, tree-equivalents, annual tonnes CO₂, annual trees).
 
-#### 7.4 Interactive UI Structure (`app_v2.py`)
-The production interface is structured into six logically organized tabs:
-1. **📊 Tab 1: Data Exploration:** Historical dataset overview, parameter correlation heatmaps, SQLite table queries.
-2. **🧠 Tab 2: Model Diagnostics:** PyTorch LSTM architecture parameters, XGBoost feature importance rankings, holdout MAE/RMSE metrics.
-3. **📈 Tab 3: 24-Hour Forecast:** Interactive Plotly curves with solar generation, baseline demand, and shaded surplus/deficit regions.
-4. **⚖ Tab 4: Surplus Analysis:** Hour-by-hour net energy balance bar charts identifying exact surplus energy quantum.
-5. **🌿 Tab 5: Carbon & Savings (NEW):** "Ask SolarGrid" AI summary box, 4 glassmorphic carbon KPI cards, and financial savings ledger.
-6. **⚙️ Tab 6: Smart Scheduler (NEW):** Appliance configuration toggles, interactive Plotly Gantt chart showing load shifting, 24-hour stacked power balance chart, and transformer safety alert badge.
+#### 7.4 Interactive UI Structure (`app_v2.py`) — Dynamic-First Tabs
+The four weather-driven tabs always come first; the two static tabs appear only in Historical Benchmark mode:
+
+| Order | Tab | Live mode | Benchmark mode |
+| :---: | :--- | :---: | :---: |
+| 1 | 📈 24-Hour Forecast | ✓ | ✓ |
+| 2 | ⚖ Surplus Analysis | ✓ | ✓ |
+| 3 | 🌿 Carbon & Savings | ✓ | ✓ |
+| 4 | ⚙️ Smart Scheduler | ✓ | ✓ |
+| 5 | 📊 Data Exploration | — (hidden) | ✓ |
+| 6 | 🧠 Model Architecture & Evaluation | — (hidden) | ✓ |
+
+The static tabs are hidden in live mode because they describe the *training* dataset and stored model metrics, which are not loaded when running on live weather (`hist_df` and `metrics` are empty in live mode).
+
+**Smart Scheduler tab outputs:** appliance configuration cards + transformer slider; a **transformer safety badge** (green "Transformer Safe" with peak load, or amber "Overload Warning" listing the offending hours and noting when base demand alone exceeds the cap); three metrics (solar surplus used, grid fallback, unscheduled / all-scheduled count); a **Plotly Gantt chart** (green = solar-powered, orange = grid draw, red = unmanaged baseline); a **24-hour stacked power-balance** area chart; and an hourly schedule-detail table.
 
 ---
 
 ### 8. Phase 7: Validation, Testing Suite & Deployment
 
-#### 8.1 Automated Test Suite (`tests/test_scheduler.py`)
-Phase 7 introduces automated testing using `pytest` covering critical engineering boundary conditions:
-- **Test 1 (`test_scheduler_returns_result`):** Validates dataclass output integrity and dictionary key existence.
-- **Test 2 (`test_transformer_cap_not_exceeded`):** Confirms that total demand plus scheduled load never breaches the $35.0\text{ kW}$ transformer threshold.
-- **Test 3 (`test_zero_solar_all_grid`):** Verifies resilience on $100\%$ overcast or night days; surplus used correctly defaults to $0.0\text{ kWh}$ and load shifts to cheapest off-peak grid slots without runtime crashes.
-- **Test 4 (`test_carbon_savings`):** Validates the exact CEA $0.82\text{ kg CO}_2/\text{kWh}$ conversion factor.
-- **Test 5 (`test_tod_savings_positive`):** Asserts that baseline peak unmanaged cost is strictly greater than or equal to optimized scheduled cost ($\Delta \text{Cost} \ge 0$).
+#### 8.1 Automated Test Suite (`tests/test_scheduler.py`) — 10 cases
+| # | Test | What it verifies |
+| :---: | :--- | :--- |
+| 1 | `test_scheduler_returns_result` | Dataclass output integrity and dictionary keys. |
+| 2 | `test_transformer_cap_not_exceeded` | Total load never breaches the cap (1 kW tolerance). |
+| 3 | `test_zero_solar_all_grid` | Zero-solar day → surplus used = 0, no crash. |
+| 4 | `test_carbon_savings` | Exact CEA 0.82 kg/kWh conversion (10 kWh → 8.2 kg). |
+| 5 | `test_tod_savings_positive` | Baseline cost > 0 and savings ≥ 0. |
+| 6 | `test_custom_power_scales_energy` | Doubling kW doubles scheduled energy. |
+| 7 | `test_tod_savings_uses_instance_names` | Renamed per-unit instances are costed (baseline = 2·33·8.50). |
+| 8 | `test_instances_interleave` | Two units land in different surplus hours (22 kWh used). |
+| 9 | `test_lower_cap_blocks_oversized_load` | A lowered cap blocks an oversized load (marked unscheduled). |
+| 10 | `test_empty_appliance_list` | Empty list is safe end-to-end (zero cost/savings). |
 
 #### 8.2 Execution Results
-All test cases execute cleanly in $< 0.5$ seconds:
 ```
-============================== test session starts ==============================
-tests/test_scheduler.py::test_scheduler_returns_result PASSED              [ 20%]
-tests/test_scheduler.py::test_transformer_cap_not_exceeded PASSED         [ 40%]
-tests/test_scheduler.py::test_zero_solar_all_grid PASSED                  [ 60%]
-tests/test_scheduler.py::test_carbon_savings PASSED                       [ 80%]
-tests/test_scheduler.py::test_tod_savings_positive PASSED                 [100%]
-=============================== 5 passed in 0.42s ===============================
+$ python -m pytest tests/test_scheduler.py -q
+..........                                                               [100%]
+10 passed in 0.10s
 ```
+Tests 6–10 were added alongside the interactive per-unit feature to lock in custom-kW scaling, instance naming, interleaving, cap enforcement and empty-list safety.
+
+#### 8.3 Deployment
+`streamlit run app.py` launches the production dashboard. `requirements.txt` pins a CPU-only PyTorch wheel for fast, GPU-free cloud boot. The app degrades gracefully: missing models → physics fallback; failed live fetch → benchmark fallback with a warning banner.
 
 ---
 
 ### 9. Codebase Walkthrough & Developer Onboarding Guide
 
-For any newcomer, student, or developer reviewing the repository, here is the file-by-file directory index:
-
 ```
 suraj_nanga/
-├── app.py                      # Production entry point (routes to app_v2)
-├── app_v2.py                   # Complete 6-tab production Streamlit dashboard (1,575 lines)
-├── app_interim.py              # Preserved 4-tab interim dashboard (Phases 1-4)
-├── data_fetcher.py             # Open-Meteo REST API client (live forecasts & city presets)
-├── data_gen.py                 # Synthetic solar geometry & dual-peak demand generator
-├── solargrid.db                # SQLite database storing 720 hourly historical records
-├── requirements.txt            # Minimal dependencies (streamlit, torch, xgboost, plotly)
-├── README.md                   # Visual project documentation & quickstart
+├── app.py                      # Entry point: imports organized_main() from app_v2 (fallback: app_interim)
+├── app_v2.py                   # Production dashboard (~1,547 lines; 4 live / 6 benchmark tabs)
+├── app_interim.py              # Preserved Phase 1–4 interim dashboard (fallback only)
+├── data_fetcher.py             # Open-Meteo REST client (live forecast + archive + city presets)
+├── data_gen.py                 # Synthetic solar geometry & dual-peak demand generator (720 rows)
+├── solargrid.db                # SQLite database (WAL), 720 hourly historical records
+├── requirements.txt            # Dependencies (CPU torch wheel)
+├── README.md                   # Newcomer onboarding & quickstart
 ├── DPR.md                      # This Detailed Project Report
 ├── PROJECT_MILESTONE_REPORT.txt# Formal seminar technical report
 ├── database/
 │   ├── __init__.py
-│   └── db_manager.py           # SQLite connection, WAL mode & schema definitions
+│   └── db_manager.py           # SQLite connection, WAL pragma & schema definitions
 ├── models/
 │   ├── __init__.py
-│   ├── forecast.py             # Inference pipeline with Live Weather df support
-│   ├── scheduler.py            # Phase 5 Greedy Priority Bin-Packing Scheduler
-│   ├── lstm_model.py           # Stacked 2-layer PyTorch neural network class
-│   ├── train_models.py         # Offline model training and holdout evaluation script
-│   └── saved/                  # Serialized PyTorch weights (.pt), XGBoost (.json), scalers
+│   ├── forecast.py             # Inference: 0.55/0.45 ensemble, live-weather support, fallback
+│   ├── scheduler.py            # Greedy priority bin-packing + ToD + carbon accounting
+│   ├── lstm_model.py           # SolarLSTM (2×64, dropout 0.2, Linear(64→1) head)
+│   ├── train_models.py         # Offline training & holdout evaluation (writes metrics.json)
+│   └── saved/                  # lstm_solar.pt, xgb_*.json/.joblib, scalers, metrics.json, feature_cols.json
 └── tests/
     ├── __init__.py
-    └── test_scheduler.py       # Automated unit test suite
+    └── test_scheduler.py       # 10-case pytest suite
 ```
 
-#### How the Data Flows at Runtime:
-1. When `app.py` is executed, it invokes `app_v2.py`.
-2. `app_v2.py` checks the sidebar data mode:
-   - If **Live City Forecast** is selected, `data_fetcher.py` queries Open-Meteo for the selected city coordinates and constructs a 24-hour weather DataFrame.
-   - If **Historical Benchmark** is selected, `models/forecast.py` uses the standard test scenario.
-3. `models/forecast.py` passes the weather features through `models/saved/scaler_features.pkl`, feeds them into `lstm_solar.pt` and `xgb_solar.json`, and computes the $0.55 / 0.45$ hybrid blend.
-4. `models/scheduler.py` receives the generation and demand curves, identifies the surplus window, and executes the Greedy Priority Bin-Packing algorithm on the configured appliances.
-5. The resulting schedule feeds the Plotly Gantt chart, ToD savings ledger, Carbon KPI cards, and "Ask SolarGrid" narrative box.
+#### How Data Flows at Runtime
+1. `app.py` imports and calls `organized_main()` from `app_v2.py`.
+2. The sidebar selects the data mode:
+   - **Live City Forecast:** `data_fetcher.fetch_live_forecast()` queries Open-Meteo for the chosen city/day → 24-row weather DataFrame → `models/forecast.get_24hr_forecast(live_weather_df=…)`.
+   - **Historical Benchmark:** `get_24hr_forecast(target_date=…)` builds a reproducible synthetic physics day.
+3. `forecast.py` scales features (`scaler_features.pkl`), runs `lstm_solar.pt` and `xgb_solar.json`, blends 0.55/0.45 for solar, and uses `xgb_demand.json` for demand.
+4. `_appliance_settings()` + `_configured_appliances()` build the per-unit appliance list and transformer cap from session state.
+5. `scheduler.run_scheduler()` produces the timetable; `compute_tod_savings()` and `compute_carbon_savings()` produce the economic and ESG ledgers.
+6. The same results feed the Gantt chart, power-balance chart, safety badge, KPI cards and "Ask SolarGrid" box across the Carbon & Savings and Smart Scheduler tabs.
+
+#### Customization
+- **New city:** add to `CITY_PRESETS` in `data_fetcher.py`.
+- **New appliance category:** add an `Appliance` to `DEFAULT_APPLIANCES` **and** a matching `_APPLIANCE_UI` entry in `app_v2.py` (same order). The helpers zip the two lists.
+- **Retrain:** `python models/train_models.py`.
 
 ---
 
 ### 10. Viva Voce, Technical Evaluation & Defense Q&A
 
-**Q1: Why did you use an ensemble of LSTM and XGBoost instead of just an LSTM?**  
-*Answer:* Solar generation has two distinct patterns: smooth diurnal progression (driven by planetary rotation) and sharp, non-linear drops (driven by sudden cloud shading). LSTMs excel at sequential temporal dependencies but tend to over-smooth sharp step-changes. XGBoost excels at non-linear threshold splits (e.g., cloud cover jumping from $20\%$ to $80\%$) but has no innate concept of sequential memory. Combining them ($0.55\text{ LSTM} + 0.45\text{ XGBoost}$) achieved an $R^2$ of $0.924$ and reduced MAE by $15.2\%$ over single LSTM.
+**Q1: Why an ensemble of LSTM and XGBoost instead of just an LSTM?**
+Solar has smooth diurnal progression (planetary rotation) and sharp non-linear drops (sudden cloud shading). LSTMs keep sequential temporal context but over-smooth step changes; XGBoost handles non-linear threshold splits but has no sequential memory. The blend `0.55·LSTM + 0.45·XGB` combines both. Holdout MAE/RMSE/MAPE are persisted in `metrics.json`; a formal ablation/R² study is future work.
 
-**Q2: How do you justify calling this "Real Data" without physical IoT sensors?**  
-*Answer:* We integrated the Open-Meteo Solar Radiation API, which streams live Global Tilted Irradiance (GTI) and atmospheric temperature derived from satellite pyranometry and numerical weather prediction models (NOAA/ECMWF). In the dashboard's "Live City Forecast" mode, the models run on real meteorological conditions occurring in that city at that moment.
+**Q2: How do you justify "Real Data" without physical IoT sensors?**
+The Open-Meteo Forecast API streams live GTI, DNI, cloud cover and temperature derived from satellite pyranometry and NWP models. "Live City Forecast" runs the models on the actual conditions for the chosen city and day, fetched as a full local calendar day with `timezone=auto`.
 
-**Q3: How does the scheduler handle non-interruptible appliances like EV charging?**  
-*Answer:* The scheduler enforces a strict continuous contiguous block constraint. For an EV charger requiring 3 hours, the algorithm scans for a window $[t, t+1, t+2]$ before the 5:00 PM deadline where all three hours maintain adequate surplus and transformer capacity, allocating the entire block atomically.
+**Q3: How does the scheduler handle non-interruptible appliances like EV charging?**
+It enforces a continuous contiguous block. For a 3-hour charger it scans windows `[t, t+1, t+2]` before the 17:00 deadline, preferring the block fully covered by surplus that maximises capture, falling back to the cheapest-tariff block that fits the cap, and allocating atomically.
 
-**Q4: What happens if there is a severe monsoon thunderstorm with zero solar surplus?**  
-*Answer:* As validated in `test_zero_solar_all_grid()`, the algorithm recognizes $B(t) \le 0$ across all 24 hours. Rather than failing or scheduling during expensive daytime peak hours (₹8.50/kWh), it shifts deferrable loads into the cheapest night off-peak tariff band (23:00 – 05:00 at ₹4.00/kWh), still saving money compared to unmanaged operation.
+**Q4: What happens on a severe monsoon day with zero surplus?**
+`B(t) ≤ 0` everywhere. Rather than failing or running at expensive peak hours, non-interruptible loads fall back to the cheapest-tariff block (night off-peak ₹4.00/kWh). `test_zero_solar_all_grid` verifies surplus used = 0.
 
-**Q5: What is the significance of the 0.82 constant in carbon calculation?**  
-*Answer:* $0.82\text{ kg CO}_2/\text{kWh}$ is the official weighted average grid emission factor published by the Central Electricity Authority (CEA), Government of India, reflecting the high coal-generation baseline of the Indian power grid.
+**Q5: What is the significance of the 0.82 constant?**
+It is the CEA (Government of India) weighted-average grid emission factor (kg CO₂/kWh), reflecting India's coal-heavy generation mix.
+
+**Q6: What does setting "number of units = 2" actually do?**
+It creates two independent `Appliance` instances (`EV Charger #1`, `#2`) via `dataclasses.replace`, each scheduled separately so they interleave into different surplus hours. `compute_tod_savings` receives the same instance list so renamed units are costed correctly — fixing a bug that previously zeroed savings.
+
+**Q7: Why are only four tabs shown in Live City mode?**
+The Data Exploration and Model Architecture tabs describe the *training* dataset and stored metrics, which are not loaded in live mode. Hiding them avoids showing stale/empty static content; the four weather-driven tabs remain fully dynamic.
+
+**Q8: How do the Carbon and Scheduler tabs stay consistent?**
+Both consume the same `_configured_appliances()` list and `peak_cap_kw`, read from `st.session_state`. Configuration is shared, so the tabs cannot disagree even though Carbon renders first.
+
+**Q9: How is the transformer protected, and what if base demand alone is too high?**
+A hard cap (`peak_cap_kw`, 20–60 kW, default 35) on `base demand + scheduled load` per hour; offending slots are skipped. If base demand alone exceeds the cap, the safety badge explicitly says so — the scheduler cannot fix that, it can only avoid adding load.
 
 ---
 
 ### 11. Conclusion, Limitations & Future Research Roadmap
 
 #### 11.1 Conclusion
-SolarGrid successfully proves that artificial intelligence combined with pragmatic heuristic scheduling can resolve the community solar intermittency problem. By shifting heavy loads into the midday solar surplus window, community microgrids can achieve up to $35–40\%$ reductions in electricity bills while significantly lowering carbon intensity—all without requiring expensive physical sensor hardware.
+SolarGrid demonstrates that AI forecasting combined with pragmatic heuristic scheduling can resolve the community solar intermittency problem. By shifting heavy loads into the midday surplus window — and letting operators model their own fleet interactively — community microgrids can materially reduce electricity bills and carbon intensity without expensive physical sensor hardware.
 
 #### 11.2 Current Limitations
-- **Battery Energy Storage Systems (BESS):** The current Phase 5 scheduler focuses on deferrable active loads (EVs, pumps, HVAC) and does not yet include dynamic state-of-charge (SoC) modeling for chemical battery banks.
-- **Single-Phase Balance:** Assumes a balanced three-phase or single-phase aggregated community load; phase imbalance optimization is left for future work.
+- **Battery Energy Storage (BESS):** the scheduler targets deferrable active loads (EVs, pumps, HVAC); dynamic state-of-charge modelling for battery banks is not yet included.
+- **Phase balance:** assumes an aggregated community load; phase-imbalance optimization is left for future work.
+- **Evaluation depth:** the training script persists MAE/RMSE/MAPE but does not yet compute R² or a formal ablation/optimality-gap study.
+- **UI behaviour:** a pre-existing Streamlit quirk resets the active tab to the first tab after a widget-triggered rerun (settings are preserved; calculations are unaffected).
 
 #### 11.3 Future Roadmap
-1. **Vehicle-to-Grid (V2G) Bi-directional Integration:** Allowing parked EVs to discharge stored energy back into the community during evening peak hours (6 PM – 10 PM).
-2. **Peer-to-Peer (P2P) Local Energy Trading:** Implementing Ethereum/Solana smart contracts for decentralized micro-transactions between prosumers and consumers.
-3. **Physical IoT Relay Gateway:** Connecting MQTT brokers to ESP32 smart relays for actual physical circuit switching.
+1. **Rigorous model evaluation:** add R², a standalone-LSTM vs standalone-XGBoost vs ensemble ablation, and a MILP optimality-gap benchmark for the scheduler.
+2. **Vehicle-to-Grid (V2G):** let parked EVs discharge back into the community during evening peak.
+3. **Battery SoC scheduling:** co-optimize deferrable loads and chemical storage.
+4. **Peer-to-Peer (P2P) energy trading:** smart-contract micro-transactions between prosumers and consumers.
+5. **Physical IoT relay gateway:** MQTT brokers driving ESP32 smart relays for real circuit switching.
 
 ---
 
@@ -487,4 +529,4 @@ SolarGrid successfully proves that artificial intelligence combined with pragmat
 4. Masters, G. M. (2004). *Renewable and Efficient Electric Power Systems*. John Wiley & Sons, Hoboken, NJ.
 5. Open-Meteo GmbH. (2024). *Open-Meteo Solar Radiation & Terrestrial Meteorological API Documentation*. https://open-meteo.com/
 6. National Renewable Energy Laboratory (NREL). (2023). *National Solar Radiation Database (NSRDB) 1998–2022*. Golden, CO.
-7. US Environmental Protection Agency (EPA). (2023). *Greenhouse Gases Equivalencies Calculator - Calculations and References*.
+7. US Environmental Protection Agency (EPA). (2023). *Greenhouse Gases Equivalencies Calculator — Calculations and References*.
